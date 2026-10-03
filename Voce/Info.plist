@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>it</string>
+	<key>CFBundleExecutable</key>
+	<string>Voce</string>
+	<key>CFBundleIconFile</key>
+	<string>AppIcon</string>
+	<key>CFBundleIdentifier</key>
+	<string>it.dimarcantonio.voce</string>
+	<key>CFBundleName</key>
+	<string>Voce</string>
+	<key>CFBundleDisplayName</key>
+	<string>Voce</string>
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0</string>
+	<key>CFBundleVersion</key>
+	<string>1</string>
+	<key>LSMinimumSystemVersion</key>
+	<string>15.0</string>
+	<key>LSUIElement</key>
+	<true/>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Voce trascrive la tua voce in locale mentre tieni premuto il tasto di dettatura. L'audio non lascia mai il Mac.</string>
+	<key>NSHumanReadableCopyright</key>
+	<string>Parakeet TDT (NVIDIA) — CC-BY-4.0, via FluidAudio.</string>
+</dict>
+</plist>

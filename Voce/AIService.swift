@@ -1,0 +1,219 @@
+import AppKit
+import SwiftUI
+
+// MARK: - Servizi AI: un solo client compatibile OpenAI (§6.3), molti provider
+
+/// Provider noti: scegliendone uno si compilano indirizzo e modello. Modelli predefiniti verificati a ottobre 2026
+/// (Groq ha spento llama-3.1-8b-instant il 16/08/2026). L'elenco reale arriva comunque da `GET /v1/models`.
+enum LLMProvider: String, CaseIterable, Identifiable {
+    case lmStudio, ollama, groq, cerebras, gemini, anthropic, openAI, openRouter, custom
+    var id: String { rawValue }
+
+    static let onMac: [LLMProvider] = [.lmStudio, .ollama]
+    static let online: [LLMProvider] = [.groq, .cerebras, .gemini, .anthropic, .openAI, .openRouter]
+
+    var name: String {
+        switch self {
+        case .lmStudio: return "LM Studio"
+        case .ollama: return "Ollama"
+        case .groq: return "Groq"
+        case .cerebras: return "Cerebras"
+        case .gemini: return "Google Gemini"
+        case .anthropic: return "Anthropic Claude"
+        case .openAI: return "OpenAI"
+        case .openRouter: return "OpenRouter"
+        case .custom: return "Altro servizio compatibile OpenAI…"
+        }
+    }
+
+    var baseURL: String {
+        switch self {
+        case .lmStudio: return "http://localhost:1234"
+        case .ollama: return "http://localhost:11434"
+        case .groq: return "https://api.groq.com/openai"
+        case .cerebras: return "https://api.cerebras.ai/v1"
+        case .gemini: return "https://generativelanguage.googleapis.com/v1beta/openai"
+        case .anthropic: return "https://api.anthropic.com/v1"
+        case .openAI: return "https://api.openai.com/v1"
+        case .openRouter: return "https://openrouter.ai/api/v1"
+        case .custom: return ""
+        }
+    }
+
+    /// Per la riscrittura: piccolo e veloce, deve solo sistemare il testo.
+    var model: String {
+        switch self {
+        case .lmStudio: return "qwen3-1.7b"
+        case .ollama: return "qwen3:1.7b"
+        case .groq, .openRouter: return "openai/gpt-oss-20b"
+        case .cerebras: return "gpt-oss-120b"
+        case .gemini: return "gemini-3.5-flash-lite"
+        case .anthropic: return "claude-haiku-4-5"
+        case .openAI: return "gpt-6-luna"
+        case .custom: return ""
+        }
+    }
+
+    /// Per i comandi: più capace, qui qualche decimo di secondo in più si accetta.
+    var commandModel: String {
+        switch self {
+        case .lmStudio: return "qwen3-4b"
+        case .ollama: return "qwen3:4b"
+        case .groq, .openRouter: return "openai/gpt-oss-120b"
+        case .gemini: return "gemini-3.8-flash"
+        default: return model
+        }
+    }
+
+    /// Dove si crea la chiave (online) o si scarica l'app (sul Mac).
+    var setupURL: URL? {
+        switch self {
+        case .lmStudio: return URL(string: "https://lmstudio.ai")
+        case .ollama: return URL(string: "https://ollama.com/download")
+        case .groq: return URL(string: "https://console.groq.com/keys")
+        case .cerebras: return URL(string: "https://cloud.cerebras.ai")
+        case .gemini: return URL(string: "https://aistudio.google.com/apikey")
+        case .anthropic: return URL(string: "https://platform.claude.com/settings/keys")
+        case .openAI: return URL(string: "https://platform.openai.com/api-keys")
+        case .openRouter: return URL(string: "https://openrouter.ai/keys")
+        case .custom: return nil
+        }
+    }
+
+    /// Markdown: cosa costa, dove va il testo, cosa fare per iniziare.
+    var blurb: String {
+        switch self {
+        case .lmStudio:
+            return "Gratis e privato: il testo non esce dal Mac. In LM Studio scarica un modello (per esempio Qwen3 1.7B) e avvia il server. [Scarica LM Studio](https://lmstudio.ai)"
+        case .ollama:
+            return "Gratis e privato: il testo non esce dal Mac. Dopo l'installazione scarica un modello, per esempio con `ollama pull qwen3:1.7b`. [Scarica Ollama](https://ollama.com/download)"
+        case .groq: return "Molto veloce, con un piano gratuito che basta per l'uso personale. Il testo viene inviato a Groq."
+        case .cerebras: return "Il più veloce, con un piano gratuito. Il testo viene inviato a Cerebras."
+        case .gemini: return "Piano gratuito con una chiave di Google AI Studio (in quel piano Google può usare i testi per migliorare i modelli). Il testo viene inviato a Google."
+        case .anthropic: return "A consumo, ottimo per i comandi più complessi. Il testo viene inviato ad Anthropic."
+        case .openAI: return "A consumo. Il testo viene inviato a OpenAI."
+        case .openRouter: return "Una sola chiave per centinaia di modelli di provider diversi, a consumo."
+        case .custom: return "Qualsiasi servizio con un'API compatibile OpenAI (vLLM, llama.cpp, Mistral, Together…)."
+        }
+    }
+
+    /// Riconosce il provider da host e porta, così anche `http://127.0.0.1:11434/v1` è Ollama.
+    static func matching(_ url: String) -> LLMProvider {
+        guard let u = URL(string: url.trimmingCharacters(in: .whitespaces)), var host = u.host()?.lowercased() else { return .custom }
+        if host == "127.0.0.1" { host = "localhost" }
+        return allCases.first { p in
+            guard p != .custom, let b = URL(string: p.baseURL) else { return false }
+            return b.host() == host && b.port == u.port
+        } ?? .custom
+    }
+
+    /// "Groq · openai/gpt-oss-20b"
+    static func describe(_ baseURL: String, _ model: String) -> String {
+        let p = matching(baseURL)
+        let name = p == .custom ? (URL(string: baseURL)?.host() ?? baseURL) : p.name
+        return model.isEmpty ? name : "\(name) · \(model)"
+    }
+}
+
+/// Frasi d'esempio usate sia per spiegare le funzioni sia per «Prova».
+enum AIExample {
+    static let spoken = "ehm allora ci vediamo martedì anzi no mercoledì alle tre e porta il portatile"
+    static let rewritten = "Allora, ci vediamo mercoledì alle tre e porta il portatile."
+    static let instruction = "traduci in inglese"
+    static let selection = "Ci vediamo domani alle tre per la revisione del progetto."
+}
+
+// MARK: - Stato dei servizi (raggiungibile? chiave valida? modello presente?)
+
+@MainActor final class AIStatus: ObservableObject {
+    static let shared = AIStatus()
+
+    enum State: Equatable { case unknown, checking, ok, failed(String) }
+
+    @Published private(set) var main: State = .unknown
+    @Published private(set) var command: State = .unknown
+    /// Modelli offerti da ciascun servizio (chiave: `key(baseURL)`), letti all'ultimo controllo.
+    @Published private(set) var models: [String: [String]] = [:]
+
+    private var task: Task<Void, Never>?
+    private var signature = ""
+    private var observer: NSObjectProtocol?
+
+    private init() {
+        observer = NotificationCenter.default.addObserver(
+            forName: UserDefaults.didChangeNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let self, self.currentSignature != self.signature else { return }
+                self.refresh()
+            }
+        }
+    }
+
+    private var currentSignature: String {
+        ["llmBaseURL", "llmModel", "commandBaseURL", "commandModel"].map { Prefs.d.string(forKey: $0) ?? "" }.joined(separator: "|")
+    }
+
+    /// Controllo leggero (`GET /models`, nessun token consumato). Il ritardo evita una richiesta per ogni tasto premuto.
+    func refresh(delay: Duration = .milliseconds(500)) {
+        signature = currentSignature
+        task?.cancel()
+        task = Task {
+            try? await Task.sleep(for: delay)
+            guard !Task.isCancelled else { return }
+            if main == .unknown { main = .checking }
+            let m = await check(Prefs.llm())
+            guard !Task.isCancelled else { return }
+            main = m
+            if Prefs.commandHasOwnService {
+                let c = await check(Prefs.llm(command: true))
+                guard !Task.isCancelled else { return }
+                command = c
+            } else {
+                command = m
+            }
+        }
+    }
+
+    static func key(_ baseURL: String) -> String {
+        baseURL.trimmingCharacters(in: CharacterSet(charactersIn: "/ ")).lowercased()
+    }
+
+    /// Ollama: "llama3.2" e "llama3.2:latest" sono lo stesso modello.
+    static func same(_ a: String, _ b: String) -> Bool {
+        func n(_ s: String) -> String {
+            let l = s.lowercased().trimmingCharacters(in: .whitespaces)
+            return l.hasSuffix(":latest") ? String(l.dropLast(7)) : l
+        }
+        return n(a) == n(b)
+    }
+
+    private func check(_ cfg: LLMConfig) async -> State {
+        if cfg.baseURL.trimmingCharacters(in: .whitespaces).isEmpty { return .failed("Manca l'indirizzo del servizio.") }
+        if !Prefs.isLocal(cfg.baseURL), (cfg.apiKey ?? "").isEmpty { return .failed("Manca la chiave API del servizio.") }
+        var probe = cfg
+        probe.timeout = 6
+        do {
+            let list = try await LLMClient.models(config: probe)
+            models[Self.key(cfg.baseURL)] = list
+            let model = cfg.model.trimmingCharacters(in: .whitespaces)
+            if model.isEmpty { return .failed("Scegli un modello.") }
+            if !list.isEmpty, !list.contains(where: { Self.same($0, model) }) {
+                return .failed("Il modello «\(model)» non c'è in questo servizio: scegline uno dall'elenco.")
+            }
+            return .ok
+        } catch LLMError.http(404, _) {
+            return .ok   // servizio che non elenca i modelli: lo verifica solo «Prova»
+        } catch {
+            return .failed(LLMClient.friendly(error))
+        }
+    }
+}
+
+func markdown(_ s: String) -> AttributedString {
+    (try? AttributedString(markdown: s)) ?? AttributedString(s)
+}
+
+func secondsText(_ ms: Int) -> String {
+    (Double(ms) / 1000).formatted(.number.precision(.fractionLength(0...2)).locale(Locale(identifier: "it_IT"))) + " s"
+}
