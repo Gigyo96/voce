@@ -13,6 +13,7 @@ import Foundation
     @Published private(set) var models: [String: [String]] = [:]
 
     private var task: Task<Void, Never>?
+    private var frozen = false
     private var signature = ""
     private var observer: NSObjectProtocol?
 
@@ -28,11 +29,20 @@ import Foundation
     }
 
     private var currentSignature: String {
-        [Prefs.llmBaseURL, Prefs.llmModel, Prefs.commandBaseURL, Prefs.commandModel].map(\.value).joined(separator: "|")
+        // Anche la lingua: i messaggi di stato vanno riscritti nella lingua nuova.
+        [Prefs.llmBaseURL, Prefs.llmModel, Prefs.commandBaseURL, Prefs.commandModel, Prefs.appLanguage].map(\.value).joined(separator: "|")
+    }
+
+    /// Per `Voce snapshot`: mostra uno stato fisso, senza interrogare nessun servizio.
+    func freeze(_ state: State) {
+        frozen = true
+        main = state
+        command = state
     }
 
     /// Controllo leggero (`GET /models`, nessun token consumato). Il ritardo evita una richiesta per ogni tasto premuto.
     func refresh(delay: Duration = .milliseconds(500)) {
+        guard !frozen else { return }
         signature = currentSignature
         task?.cancel()
         task = Task {
@@ -66,17 +76,17 @@ import Foundation
     }
 
     private func check(_ cfg: LLMConfig) async -> State {
-        if cfg.baseURL.trimmingCharacters(in: .whitespaces).isEmpty { return .failed("Manca l'indirizzo del servizio.") }
-        if !Prefs.isLocal(cfg.baseURL), (cfg.apiKey ?? "").isEmpty { return .failed("Manca la chiave API del servizio.") }
+        if cfg.baseURL.trimmingCharacters(in: .whitespaces).isEmpty { return .failed(L("Manca l'indirizzo del servizio.")) }
+        if !Prefs.isLocal(cfg.baseURL), (cfg.apiKey ?? "").isEmpty { return .failed(L("Manca la chiave API del servizio.")) }
         var probe = cfg
         probe.timeout = 6
         do {
             let list = try await LLMClient.models(config: probe)
             models[Self.key(cfg.baseURL)] = list
             let model = cfg.model.trimmingCharacters(in: .whitespaces)
-            if model.isEmpty { return .failed("Scegli un modello.") }
+            if model.isEmpty { return .failed(L("Scegli un modello.")) }
             if !list.isEmpty, !list.contains(where: { Self.same($0, model) }) {
-                return .failed("Il modello «\(model)» non c'è in questo servizio: scegline uno dall'elenco.")
+                return .failed(L("Il modello «%@» non c'è in questo servizio: scegline uno dall'elenco.", model))
             }
             return .ok
         } catch LLMError.http(404, _) {

@@ -77,12 +77,17 @@ actor Transcriber {
         }
     }
 
-    func transcribe(_ samples: [Float], terms: [(term: String, aliases: [String])]) async throws -> Transcription {
+    /// Coda di silenzio: aiuta il decoder TDT a emettere l'ultima parola e rispetta la durata minima.
+    static func padded(_ samples: [Float]) -> [Float] {
+        samples + [Float](repeating: 0, count: max(4_000, 16_000 - samples.count))
+    }
+
+    func transcribe(_ samples: [Float], terms: [(term: String, aliases: [String])],
+                    language: SpeechLanguage = .auto) async throws -> Transcription {
         guard let asr else { throw ASRError.notInitialized }
         let start = Date()
 
-        // Coda di silenzio: aiuta il decoder TDT a emettere l'ultima parola e rispetta la durata minima.
-        let audio = samples + [Float](repeating: 0, count: max(4_000, 16_000 - samples.count))
+        let audio = Self.padded(samples)
 
         // L'encoder CTC del boosting non dipende dall'uscita TDT: gira in parallelo.
         let booster = terms.isEmpty ? nil : try? await booster(for: terms)
@@ -92,7 +97,7 @@ actor Transcriber {
         }()
 
         var state = TdtDecoderState.make(decoderLayers: await asr.decoderLayerCount)
-        let result = try await asr.transcribe(audio, decoderState: &state, language: .italian)
+        let result = try await asr.transcribe(audio, decoderState: &state, language: language.alphabet)
         let raw = result.text.trimmingCharacters(in: .whitespacesAndNewlines)
         let asrMs = Int(Date().timeIntervalSince(start) * 1000)
         var boosted = raw
@@ -112,6 +117,36 @@ actor Transcriber {
                              boostMs: Int(Date().timeIntervalSince(start) * 1000) - asrMs)
     }
 
+    /// Per le riunioni: l'audio intero, tagliato come nelle dettature lunghe (finestre sotto i 15 s nelle pause),
+    /// restituito come parole con i loro istanti in secondi dall'inizio. Niente boosting: serve a sapere *chi* dice cosa,
+    /// il dizionario si applica dopo sul testo. Ogni finestra è una richiesta a sé: una dettatura non aspetta più di una.
+    func transcribeWords(_ samples: [Float], language: SpeechLanguage = .auto, silence: Float = Float(Prefs.silenceRMS.value),
+                         progress: (@Sendable (Double) -> Void)? = nil) async throws -> [TimedWord] {
+        guard let asr else { throw ASRError.notInitialized }
+        let rate = Recorder.sampleRate
+        var words: [TimedWord] = []
+        var start = 0
+        while start < samples.count {
+            try Task.checkCancellation()
+            let reach = min(samples.count, start + Int((Segmenter.triggerSeconds + 1) * rate))
+            let pending = Array(samples[start..<reach])
+            let length = Recorder.duration(pending) > Segmenter.triggerSeconds ? Segmenter.cutPoint(pending) : pending.count
+            let window = Array(pending.prefix(length))
+            if Recorder.hasVoice(window, threshold: silence) {
+                var state = TdtDecoderState.make(decoderLayers: await asr.decoderLayerCount)
+                let result = try await asr.transcribe(Self.padded(window), decoderState: &state, language: language.alphabet)
+                var found = TranscriptBuilder.words(from: result.tokenTimings ?? [], offset: Double(start) / rate)
+                if let previous = words.last, let first = found.first {
+                    found[0].text = Segmenter.continuing(first.text, after: previous.text)
+                }
+                words += found
+            }
+            start += max(length, 1)
+            progress?(Double(start) / Double(samples.count))
+        }
+        return words
+    }
+
     // MARK: - Arbitrato delle sostituzioni
 
     /// Il rescorer ricostruisce il testo dai timing (perde la punteggiatura) e, con un encoder CTC inglese
@@ -120,7 +155,8 @@ actor Transcriber {
     static let minSimilarity = 0.7
     private static let functionWords: Set<String> = [
         "a", "e", "o", "il", "lo", "la", "i", "gli", "le", "l", "un", "uno", "una", "di", "da", "in", "con", "su",
-        "per", "tra", "fra", "che", "del", "della", "al", "alla", "nel", "nella", "the", "and", "of", "to", "an",
+        "per", "tra", "fra", "che", "del", "della", "al", "alla", "nel", "nella",
+        "the", "and", "of", "to", "an", "on", "for", "with", "at", "by", "from", "is",
     ]
 
     static func applyReplacements(_ pairs: [(original: String, term: String)], to raw: String,
@@ -202,4 +238,10 @@ actor Transcriber {
         booster = Booster(key: key, vocabulary: vocabulary, spotter: spotter, rescorer: rescorer, cbw: cbw)
         return booster
     }
+}
+
+extension SpeechLanguage {
+    /// Per FluidAudio `language` è solo un filtro sull'alfabeto (impedisce token cirillici e simili): italiano e
+    /// inglese sono entrambi latini, quindi anche in automatico Parakeet riconosce le due lingue mescolate.
+    var alphabet: Language { self == .en ? .english : .italian }
 }

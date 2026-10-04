@@ -19,7 +19,8 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 cp "$BIN/Voce" "$APP/Contents/MacOS/Voce"
 cp Voce/Info.plist "$APP/Contents/Info.plist"
 for bundle in "$BIN"/*.bundle(N); do cp -R "$bundle" "$APP/Contents/Resources/"; done
-[[ -f Voce/AppIcon.icns ]] && cp Voce/AppIcon.icns "$APP/Contents/Resources/"
+# Icona, traduzioni (String Catalog letto a runtime) e testi di sistema tradotti (InfoPlist.strings).
+cp -R Voce/Resources/ "$APP/Contents/Resources/"
 
 KEYCHAIN="$HOME/Library/Keychains/voce-signing.keychain-db"
 IDENTITY="${VOCE_SIGN_IDENTITY:-}"

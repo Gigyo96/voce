@@ -21,7 +21,7 @@ enum LLMProvider: String, CaseIterable, Identifiable {
         case .anthropic: return "Anthropic Claude"
         case .openAI: return "OpenAI"
         case .openRouter: return "OpenRouter"
-        case .custom: return "Altro servizio compatibile OpenAI…"
+        case .custom: return L("Altro servizio compatibile OpenAI…")
         }
     }
 
@@ -83,16 +83,16 @@ enum LLMProvider: String, CaseIterable, Identifiable {
     var blurb: String {
         switch self {
         case .lmStudio:
-            return "Gratis e privato: il testo non esce dal Mac. In LM Studio scarica un modello (per esempio Qwen3 1.7B) e avvia il server. [Scarica LM Studio](https://lmstudio.ai)"
+            return L("Gratis e privato: il testo non esce dal Mac. In LM Studio scarica un modello (per esempio Qwen3 1.7B) e avvia il server. [Scarica LM Studio](https://lmstudio.ai)")
         case .ollama:
-            return "Gratis e privato: il testo non esce dal Mac. Dopo l'installazione scarica un modello, per esempio con `ollama pull qwen3:1.7b`. [Scarica Ollama](https://ollama.com/download)"
-        case .groq: return "Molto veloce, con un piano gratuito che basta per l'uso personale. Il testo viene inviato a Groq."
-        case .cerebras: return "Il più veloce, con un piano gratuito. Il testo viene inviato a Cerebras."
-        case .gemini: return "Piano gratuito con una chiave di Google AI Studio (in quel piano Google può usare i testi per migliorare i modelli). Il testo viene inviato a Google."
-        case .anthropic: return "A consumo, ottimo per i comandi più complessi. Il testo viene inviato ad Anthropic."
-        case .openAI: return "A consumo. Il testo viene inviato a OpenAI."
-        case .openRouter: return "Una sola chiave per centinaia di modelli di provider diversi, a consumo."
-        case .custom: return "Qualsiasi servizio con un'API compatibile OpenAI (vLLM, llama.cpp, Mistral, Together…)."
+            return L("Gratis e privato: il testo non esce dal Mac. Dopo l'installazione scarica un modello, per esempio con `ollama pull qwen3:1.7b`. [Scarica Ollama](https://ollama.com/download)")
+        case .groq: return L("Molto veloce, con un piano gratuito che basta per l'uso personale. Il testo viene inviato a Groq.")
+        case .cerebras: return L("Il più veloce, con un piano gratuito. Il testo viene inviato a Cerebras.")
+        case .gemini: return L("Piano gratuito con una chiave di Google AI Studio (in quel piano Google può usare i testi per migliorare i modelli). Il testo viene inviato a Google.")
+        case .anthropic: return L("A consumo, ottimo per i comandi più complessi. Il testo viene inviato ad Anthropic.")
+        case .openAI: return L("A consumo. Il testo viene inviato a OpenAI.")
+        case .openRouter: return L("Una sola chiave per centinaia di modelli di provider diversi, a consumo.")
+        case .custom: return L("Qualsiasi servizio con un'API compatibile OpenAI (vLLM, llama.cpp, Mistral, Together…).")
         }
     }
 

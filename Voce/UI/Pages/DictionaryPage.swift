@@ -21,7 +21,7 @@ import SwiftUI
             dictionary = try PersonalDictionary.read()
             loadError = nil
         } catch {
-            loadError = (error as? DecodingError).map { _ in "dictionary.json non è un JSON valido." } ?? error.localizedDescription
+            loadError = (error as? DecodingError).map { _ in L("dictionary.json non è un JSON valido.") } ?? error.localizedDescription
         }
     }
 
@@ -71,7 +71,7 @@ import SwiftUI
             saveError = nil
             return true
         } catch {
-            saveError = "Salvataggio non riuscito: \(error.localizedDescription)"
+            saveError = L("Salvataggio non riuscito: %@", error.localizedDescription)
             return false
         }
     }
@@ -100,15 +100,15 @@ struct DictionaryPage: View {
         VStack(alignment: .leading, spacing: 0) {
             VStack(alignment: .leading, spacing: 12) {
                 if let error = model.loadError {
-                    Banner(symbol: "exclamationmark.triangle.fill", tint: .orange, text: "\(error) Correggilo a mano: finché non è valido l'editor resta in sola lettura.") {
-                        Button("Apri file") { NSWorkspace.shared.open(Paths.dictionary) }
-                        Button("Ricarica") { model.reload() }
+                    Banner(symbol: "exclamationmark.triangle.fill", tint: .orange, text: error + " " + L("Correggilo a mano: finché non è valido l'editor resta in sola lettura.")) {
+                        Button(L("Apri file")) { NSWorkspace.shared.open(Paths.dictionary) }
+                        Button(L("Ricarica")) { model.reload() }
                     }
                 }
                 if let error = model.saveError {
                     Banner(symbol: "xmark.octagon.fill", tint: .red, text: error) { EmptyView() }
                 }
-                Text("Come Voce deve scrivere i nomi che usi: librerie, comandi, persone, prodotti.")
+                Text(L("Come Voce deve scrivere i nomi che usi: librerie, comandi, persone, prodotti."))
                     .foregroundStyle(.secondary)
             }
             .padding([.horizontal, .top], 20)
@@ -127,15 +127,15 @@ struct DictionaryPage: View {
         }
         .toolbar {
             ToolbarItem(placement: .principal) {
-                Picker("Vista", selection: $nav.dictionaryTab) {
-                    Text("Termini").tag(DictionaryTab.terms)
-                    Text("Correzioni").tag(DictionaryTab.corrections)
+                Picker(L("Vista"), selection: $nav.dictionaryTab) {
+                    Text(L("Termini")).tag(DictionaryTab.terms)
+                    Text(L("Correzioni")).tag(DictionaryTab.corrections)
                 }
                 .pickerStyle(.segmented)
                 .fixedSize()
             }
         }
-        .searchable(text: $search, placement: .toolbar, prompt: "Cerca")
+        .searchable(text: $search, placement: .toolbar, prompt: L("Cerca"))
         .onAppear { model.reload() }
     }
 
@@ -144,24 +144,24 @@ struct DictionaryPage: View {
     private var termsPane: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
-                TextField("Nuovo termine, es. Supabase, useEffect, Claude Code", text: $newTerm)
+                TextField(L("Nuovo termine, es. Supabase, useEffect, Claude Code"), text: $newTerm)
                     .textFieldStyle(.roundedBorder)
                     .focused($focus, equals: .term)
                     .onSubmit(addTerm)
-                Button("Aggiungi", action: addTerm)
+                Button(L("Aggiungi"), action: addTerm)
                     .keyboardShortcut(.defaultAction)
                     .disabled(newTerm.trimmingCharacters(in: .whitespaces).isEmpty)
             }
             .padding(.horizontal, 20)
             if model.contains(term: newTerm.trimmingCharacters(in: .whitespaces)) {
-                Text("È già nel dizionario.").font(.caption).foregroundStyle(.secondary).padding(.horizontal, 20)
+                Text(L("È già nel dizionario.")).font(.caption).foregroundStyle(.secondary).padding(.horizontal, 20)
             }
 
             let terms = model.terms.filter { search.isEmpty || $0.localizedCaseInsensitiveContains(search) }
             if terms.isEmpty {
                 if search.isEmpty {
-                    ContentUnavailableView("Nessun termine", systemImage: "character.book.closed",
-                                           description: Text("Aggiungi le parole che Voce sbaglia più spesso: le scriverà sempre così."))
+                    ContentUnavailableView(L("Nessun termine"), systemImage: "character.book.closed",
+                                           description: Text(L("Aggiungi le parole che Voce sbaglia più spesso: le scriverà sempre così.")))
                 } else {
                     ContentUnavailableView.search(text: search)
                 }
@@ -195,24 +195,24 @@ struct DictionaryPage: View {
                 .padding(.horizontal, 20)
             }
             HStack(spacing: 8) {
-                TextField("Trascritto come", text: $spoken, prompt: Text("Trascritto come… es. cube cuttle"))
+                TextField(L("Trascritto come"), text: $spoken, prompt: Text(L("Trascritto come… es. cube cuttle")))
                     .textFieldStyle(.roundedBorder)
                     .focused($focus, equals: .spoken)
                     .onSubmit { focus = .written }
                 Image(systemName: "arrow.right").foregroundStyle(.secondary)
-                TextField("Scrivi", text: $written, prompt: Text("Scrivi… es. kubectl"))
+                TextField(L("Scrivi"), text: $written, prompt: Text(L("Scrivi… es. kubectl")))
                     .textFieldStyle(.roundedBorder)
                     .focused($focus, equals: .written)
                     .onSubmit(addCorrection)
-                Button(editing == nil ? "Aggiungi" : "Salva", action: addCorrection)
+                Button(editing == nil ? L("Aggiungi") : L("Salva"), action: addCorrection)
                     .keyboardShortcut(.defaultAction)
                     .disabled(spoken.trimmingCharacters(in: .whitespaces).isEmpty || written.trimmingCharacters(in: .whitespaces).isEmpty)
                 if editing != nil {
-                    Button("Annulla") { editing = nil; spoken = ""; written = "" }
+                    Button(L("Annulla")) { editing = nil; spoken = ""; written = "" }
                 }
             }
             .padding(.horizontal, 20)
-            Toggle("Aggiungi la forma scritta anche ai termini (aiuta il riconoscimento)", isOn: $alsoTerm)
+            Toggle(L("Aggiungi la forma scritta anche ai termini (aiuta il riconoscimento)"), isOn: $alsoTerm)
                 .toggleStyle(.checkbox)
                 .font(.caption)
                 .padding(.horizontal, 20)
@@ -222,8 +222,8 @@ struct DictionaryPage: View {
             }
             if rows.isEmpty {
                 if search.isEmpty {
-                    ContentUnavailableView("Nessuna correzione", systemImage: "arrow.triangle.swap",
-                                           description: Text("Quando Voce trascrive male una parola, cliccala qui sopra e scrivi la forma giusta."))
+                    ContentUnavailableView(L("Nessuna correzione"), systemImage: "arrow.triangle.swap",
+                                           description: Text(L("Quando Voce trascrive male una parola, cliccala qui sopra e scrivi la forma giusta.")))
                 } else {
                     ContentUnavailableView.search(text: search)
                 }
@@ -259,7 +259,7 @@ struct DictionaryPage: View {
     private var trialBar: some View {
         HStack(spacing: 10) {
             Image(systemName: "text.badge.checkmark").foregroundStyle(.secondary)
-            TextField("Prova: scrivi una frase come la trascriverebbe Voce", text: $trial)
+            TextField(L("Prova: scrivi una frase come la trascriverebbe Voce"), text: $trial)
                 .textFieldStyle(.plain)
                 .focused($focus, equals: .trial)
             if !trial.isEmpty {
@@ -278,7 +278,7 @@ struct DictionaryPage: View {
                 Label("dictionary.json", systemImage: "curlybraces")
             }
             .buttonStyle(.link)
-            .help("Apri il file JSON: Voce lo ricarica a ogni modifica")
+            .help(L("Apri il file JSON: Voce lo ricarica a ogni modifica"))
         }
         .padding(.horizontal, 20)
         .padding(.vertical, 12)
@@ -298,7 +298,7 @@ private struct TermRow: View {
                 Text(term).font(.system(.body, design: .monospaced))
                 let forms = PersonalDictionary.spokenForms(of: term).dropFirst()
                 if !forms.isEmpty {
-                    Text("riconosce anche: " + forms.map { "«\($0.lowercased())»" }.joined(separator: " "))
+                    Text(L("riconosce anche: %@", forms.map { "«\($0.lowercased())»" }.joined(separator: " ")))
                         .font(.caption).foregroundStyle(.secondary)
                 }
             }
@@ -309,8 +309,8 @@ private struct TermRow: View {
         .contentShape(Rectangle())
         .onHover { hover = $0 }
         .contextMenu {
-            Button("Copia") { copy(term) }
-            Button("Elimina", role: .destructive, action: onDelete)
+            Button(L("Copia")) { copy(term) }
+            Button(L("Elimina"), role: .destructive, action: onDelete)
         }
     }
 }
@@ -330,7 +330,7 @@ private struct CorrectionRow: View {
             Text(written).font(.system(.body, design: .monospaced))
             Spacer()
             if hover || selected {
-                Button("Modifica", action: onEdit).buttonStyle(.link).font(.caption)
+                Button(L("Modifica"), action: onEdit).buttonStyle(.link).font(.caption)
             }
             DeleteButton(visible: hover, action: onDelete)
         }
@@ -340,8 +340,8 @@ private struct CorrectionRow: View {
         .onTapGesture(count: 2, perform: onEdit)
         .listRowBackground(selected ? Color.accentColor.opacity(0.12) : Color.clear)
         .contextMenu {
-            Button("Modifica", action: onEdit)
-            Button("Elimina", role: .destructive, action: onDelete)
+            Button(L("Modifica"), action: onEdit)
+            Button(L("Elimina"), role: .destructive, action: onDelete)
         }
     }
 }
@@ -356,8 +356,8 @@ private struct DeleteButton: View {
         }
         .buttonStyle(.borderless)
         .opacity(visible ? 1 : 0)
-        .help("Elimina")
-        .accessibilityLabel("Elimina")
+        .help(L("Elimina"))
+        .accessibilityLabel(L("Elimina"))
     }
 }
 
@@ -376,12 +376,12 @@ private struct QuickFix: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Label("Correggi dall'ultima dettatura", systemImage: "wand.and.rays").font(.subheadline.weight(.semibold))
+                Label(L("Correggi dall'ultima dettatura"), systemImage: "wand.and.rays").font(.subheadline.weight(.semibold))
                 Spacer()
-                Text(entry.date.map { $0.formatted(.relative(presentation: .named)) } ?? "")
+                Text(entry.date.map { $0.formatted(.relative(presentation: .named).locale(Loc.locale)) } ?? "")
                     .font(.caption).foregroundStyle(.secondary)
             }
-            Text("Clicca la parola trascritta male (o la prima e l'ultima di più parole).")
+            Text(L("Clicca la parola trascritta male (o la prima e l'ultima di più parole)."))
                 .font(.caption).foregroundStyle(.secondary)
             ScrollView {
                 FlowLayout(spacing: 4) {

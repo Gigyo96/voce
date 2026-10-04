@@ -166,5 +166,5 @@ func markdown(_ s: String) -> AttributedString {
 }
 
 func secondsText(_ ms: Int) -> String {
-    (Double(ms) / 1000).formatted(.number.precision(.fractionLength(0...2)).locale(Locale(identifier: "it_IT"))) + " s"
+    (Double(ms) / 1000).formatted(.number.precision(.fractionLength(0...2)).locale(Loc.locale)) + " s"
 }

@@ -12,23 +12,46 @@ enum Rules {
         try! NSRegularExpression(pattern: pattern, options: [.caseInsensitive])
     }
 
-    // Solo filler non ambigui; "cioè", "tipo", "like" si aggiungono solo se i dati lo giustificano.
-    private static let filler = regex(#"(?<![\p{L}\p{N}])(?:e+h*m+|e+h+|(?<!\d )m+|u+h*m+|u+h+)(?![\p{L}\p{N}]),?\s*"#)
-    // "a capo" ma non "a capo del/della/di…" (uso normale nel parlato).
-    private static let newline = regex(#"[ \t]*[,;:]?[ \t]*(?<![\p{L}\p{N}])a capo(?![\p{L}\p{N}])(?!\s+(?:del|della|dello|dei|degli|delle|di)\b)[.,;:!?]?[ \t]*"#)
-    private static let paragraph = regex(#"[ \t]*[,;:]?[ \t]*(?<![\p{L}\p{N}])nuovo paragrafo(?![\p{L}\p{N}])[.,;:!?]?[ \t]*"#)
-    private static let send = regex(#"[\s,;:.]*(?<![\p{L}\p{N}])invia(?![\p{L}\p{N}])[.!]?\s*$"#)
+    // Solo filler non ambigui, in italiano e in inglese ("ehm", "uhm", "eh", "hmm", "erm"); "cioè", "tipo", "like"
+    // si aggiungono solo se i dati lo giustificano.
+    private static let filler = regex(#"(?<![\p{L}\p{N}])(?:e+h*m+|e+h+|(?<!\d )m+|u+h*m+|u+h+|h+m+|e+r+m+)(?![\p{L}\p{N}]),?\s*"#)
 
-    static func apply(_ input: String, profile: Profile, sendOnInvia: Bool) -> RulesOutput {
+    /// Comandi vocali di una lingua: vanno a capo, lasciano una riga vuota, premono Invio.
+    private struct Commands {
+        let newline: NSRegularExpression
+        let paragraph: NSRegularExpression
+        let send: NSRegularExpression
+    }
+
+    private static let italian = Commands(
+        // "a capo" ma non "a capo del/della/di…" (uso normale nel parlato).
+        newline: regex(#"[ \t]*[,;:]?[ \t]*(?<![\p{L}\p{N}])a capo(?![\p{L}\p{N}])(?!\s+(?:del|della|dello|dei|degli|delle|di)\b)[.,;:!?]?[ \t]*"#),
+        paragraph: regex(#"[ \t]*[,;:]?[ \t]*(?<![\p{L}\p{N}])nuovo paragrafo(?![\p{L}\p{N}])[.,;:!?]?[ \t]*"#),
+        send: regex(#"[\s,;:.]*(?<![\p{L}\p{N}])invia(?![\p{L}\p{N}])[.!]?\s*$"#))
+
+    // "new line" ma non quando descrive qualcosa: "add a new line", "the new line character", "a new line of code".
+    private static let notDescribed = #"(?<!\b(?:a|an|the|one|another|each|every|this|that|add|insert)\s)"#
+    private static let notFollowedByObject = #"(?!\s+(?:character|characters|char|chars|symbol|symbols|of|in|at|after|before|between|to|is|are|was|were)\b)"#
+
+    private static let english = Commands(
+        newline: regex(#"[ \t]*[,;:]?[ \t]*(?<![\p{L}\p{N}])"# + notDescribed + #"new[ \t-]?line(?![\p{L}\p{N}])"# + notFollowedByObject + #"[.,;:!?]?[ \t]*"#),
+        paragraph: regex(#"[ \t]*[,;:]?[ \t]*(?<![\p{L}\p{N}])"# + notDescribed + #"new paragraph(?![\p{L}\p{N}])"# + notFollowedByObject + #"[.,;:!?]?[ \t]*"#),
+        send: regex(#"[\s,;:.]*(?<![\p{L}\p{N}])send(?![\p{L}\p{N}])[.!]?\s*$"#))
+
+    static func apply(_ input: String, profile: Profile, sendOnInvia: Bool, language: SpeechLanguage = .auto) -> RulesOutput {
+        var commands: [Commands] = []
+        if language.usesItalianCommands { commands.append(italian) }
+        if language.usesEnglishCommands { commands.append(english) }
+
         var s = input
         var shouldSend = false
-        if sendOnInvia, profile.isAgent, s.range(of: send.pattern, options: [.regularExpression, .caseInsensitive]) != nil {
-            s = replace(send, in: s, with: "")
+        if sendOnInvia, profile.isAgent, let c = commands.first(where: { matches($0.send, s) }) {
+            s = replace(c.send, in: s, with: "")
             shouldSend = true
         }
         s = replace(filler, in: s, with: "")
-        s = replace(paragraph, in: s, with: "\n\n")
-        s = replace(newline, in: s, with: "\n")
+        for c in commands { s = replace(c.paragraph, in: s, with: "\n\n") }
+        for c in commands { s = replace(c.newline, in: s, with: "\n") }
         return RulesOutput(text: tidy(s), send: shouldSend)
     }
 
@@ -57,6 +80,10 @@ enum Rules {
             }
         }
         return out
+    }
+
+    private static func matches(_ re: NSRegularExpression, _ s: String) -> Bool {
+        re.firstMatch(in: s, range: NSRange(s.startIndex..., in: s)) != nil
     }
 
     fileprivate static func replace(_ re: NSRegularExpression, in s: String, with template: String) -> String {

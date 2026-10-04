@@ -7,9 +7,8 @@ final class Recorder: @unchecked Sendable {
     private static let prerollSamples = 4_800   // 300 ms
 
     private let engine = AVAudioEngine()
-    private let target = AVAudioFormat(commonFormat: .pcmFormatFloat32, sampleRate: sampleRate, channels: 1, interleaved: false)!
     private let lock = NSLock()
-    private var converter: AVAudioConverter?
+    private var converter: PCMConverter?
     private var samples: [Float] = []
     private var preroll: [Float] = []
     private var capturing = false
@@ -91,9 +90,7 @@ final class Recorder: @unchecked Sendable {
     private func installTap() {
         let input = engine.inputNode
         let format = input.outputFormat(forBus: 0)
-        guard format.sampleRate > 0, format.channelCount > 0 else { tapInstalled = false; return }
-        let conv = AVAudioConverter(from: format, to: target)
-        conv?.downmix = true
+        guard let conv = PCMConverter(from: format) else { tapInstalled = false; return }
         converter = conv
         input.installTap(onBus: 0, bufferSize: 1_024, format: format) { [weak self] buffer, _ in
             self?.process(buffer)
@@ -114,21 +111,10 @@ final class Recorder: @unchecked Sendable {
 
     private func process(_ buffer: AVAudioPCMBuffer) {
         guard let converter else { return }
-        let ratio = target.sampleRate / buffer.format.sampleRate
-        let capacity = AVAudioFrameCount(Double(buffer.frameLength) * ratio + 64)
-        guard let out = AVAudioPCMBuffer(pcmFormat: target, frameCapacity: capacity) else { return }
-        nonisolated(unsafe) var fed = false
-        var error: NSError?
-        converter.convert(to: out, error: &error) { _, status in
-            if fed { status.pointee = .noDataNow; return nil }
-            fed = true
-            status.pointee = .haveData
-            return buffer
-        }
-        guard error == nil, let data = out.floatChannelData?[0], out.frameLength > 0 else { return }
-        let chunk = UnsafeBufferPointer(start: data, count: Int(out.frameLength))
+        let chunk = converter.convert(buffer)
+        guard !chunk.isEmpty else { return }
         var rms: Float = 0
-        vDSP_rmsqv(data, 1, &rms, vDSP_Length(out.frameLength))
+        vDSP_rmsqv(chunk, 1, &rms, vDSP_Length(chunk.count))
 
         lock.withLock {
             if capturing {
@@ -175,5 +161,5 @@ final class Recorder: @unchecked Sendable {
 
 enum RecorderError: LocalizedError {
     case noInput
-    var errorDescription: String? { "Nessun microfono disponibile" }
+    var errorDescription: String? { L("Nessun microfono disponibile") }
 }

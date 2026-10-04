@@ -3,6 +3,7 @@ import PackageDescription
 
 let package = Package(
     name: "Voce",
+    defaultLocalization: "it",
     platforms: [.macOS(.v15)],
     dependencies: [
         // Unica dipendenza (§9.2). Il trait NemoTextProcessing (ITN/TTS) non serve: lo disattiviamo.
@@ -13,7 +14,7 @@ let package = Package(
             name: "Voce",
             dependencies: [.product(name: "FluidAudio", package: "FluidAudio")],
             path: "Voce",
-            exclude: ["Info.plist", "AppIcon.icns"]
+            exclude: ["Info.plist", "Resources"]   // risorse copiate da scripts/build.sh
         ),
         .testTarget(
             name: "VoceTests",

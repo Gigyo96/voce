@@ -33,6 +33,13 @@ enum Guardrail {
         return Double(inWords.filter(outWords.contains).count) / Double(inWords.count)
     }
 
+    /// Il testo da mostrare mentre la risposta arriva a pezzi: senza i blocchi <think>, anche quello ancora aperto.
+    static func visible(_ partial: String) -> String {
+        var s = partial.replacingOccurrences(of: #"(?s)<think>.*?</think>"#, with: "", options: .regularExpression)
+        if let open = s.range(of: "<think>") { s = String(s[..<open.lowerBound]) }
+        return s.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
     /// Ripulisce l'output grezzo del modello: blocchi <think>, virgolette o backtick che avvolgono tutto.
     static func clean(_ raw: String) -> String {
         var s = raw.replacingOccurrences(of: #"(?s)<think>.*?</think>"#, with: "", options: .regularExpression)

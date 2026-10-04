@@ -31,11 +31,14 @@ enum Profile: String, CaseIterable, Sendable {
 
     var newlineKey: String { self == .agentTerminal ? "shift+return" : "return" }
 
-    var llmInstructions: String {
+    /// Il prompt dello stile per questo profilo (personalizzabile nella pagina Prompt).
+    var stylePrompt: PromptID {
         switch self {
-        case .chat:  return "Messaggio di chat informale. Frasi brevi, tono colloquiale. Non aggiungere saluti, firme o emoji."
-        case .email: return "Email. Punteggiatura curata, paragrafi separati da una riga vuota. Non aggiungere saluti, firme o oggetto non dettati."
-        default:     return "Testo generico. Correggi solo punteggiatura, maiuscole ed esitazioni."
+        case .chat: return .styleChat
+        case .email: return .styleEmail
+        default: return .stylePlain
         }
     }
+
+    func llmInstructions(_ store: PromptStore = .shared) -> String { store.text(stylePrompt) }
 }

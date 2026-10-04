@@ -39,3 +39,39 @@ import Testing
         #expect(Segmenter.join(["Usa la", "API di Groq", ""]) == "Usa la API di Groq")
     }
 }
+
+@Suite struct MediaPauseTests {
+    @Test func recognizesMediaAppsAndTheirHelpers() {
+        #expect(MediaPause.isMediaApp("com.spotify.client"))
+        #expect(MediaPause.isMediaApp("com.google.Chrome.helper"))
+        #expect(MediaPause.isMediaApp("com.apple.WebKit.GPU"))
+        #expect(MediaPause.isMediaApp("com.apple.Music"))
+        // Chiamate e app qualsiasi: solo volume abbassato, niente Play/Pausa (potrebbe avviare Musica).
+        #expect(!MediaPause.isMediaApp("us.zoom.xos"))
+        #expect(!MediaPause.isMediaApp("com.apple.FaceTime"))
+        #expect(!MediaPause.isMediaApp("com.spotify.clientx"))
+    }
+
+    @Test func coreAudioAnswers() {
+        #expect(SystemAudio.defaultOutput != nil)
+        _ = SystemAudio.playingBundleIDs()   // non deve bloccarsi né andare in crash
+    }
+}
+
+@Suite struct LivePreviewTests {
+    @Test func formatsLikeTheFinalText() {
+        let dict = PersonalDictionary(terms: ["useEffect"], replace: [:])
+        let out = LivePreview.format(["ehm aggiungi uno use effect", "Che carica i dati a capo poi"], dictionary: dict, language: .auto)
+        #expect(out == "Aggiungi uno useEffect che carica i dati\nPoi")
+    }
+
+    @Test func tailKeepsTheEndAndStartsAtAWord() {
+        let text = (1...60).map { "parola\($0)" }.joined(separator: " ")
+        let tail = LivePreview.tail(text, limit: 40)
+        #expect(tail.hasPrefix("…parola"))
+        #expect(tail.hasSuffix("parola60"))
+        #expect(tail.count <= 41)
+        #expect(LivePreview.tail("breve") == "breve")
+        #expect(LivePreview.tail("riga\nnuova") == "riga ⏎ nuova")
+    }
+}

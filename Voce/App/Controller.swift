@@ -20,6 +20,8 @@ import AVFoundation
     let recorder = Recorder()
     let hotkey = Hotkey()
     let hud = HUD()
+    let mediaPause = MediaPause()
+    let livePreview = LivePreview()
 
     private var mode: Hotkey.Mode = .pushToTalk
     private var maxTimer: Task<Void, Never>?
@@ -32,9 +34,11 @@ import AVFoundation
 
     func launch() {
         Prefs.migrate()
+        MediaPause.recoverIfNeeded()
         HangDetector.start()
         _ = DictionaryStore.shared.current          // crea ~/.voce/dictionary.json al primo avvio
         loadHistory()
+        MeetingStore.shared.load()
         hud.levelSource = { [recorder] in recorder.consumeLevel() }
 
         applyHotkeyPrefs()
@@ -125,12 +129,12 @@ import AVFoundation
         guard modelState == .ready else {
             log.info("start ignorato: modello non pronto")
             hotkey.reset()
-            hud.show(.error(isLoading ? "Modello in caricamento…" : "Modello non disponibile"))
+            hud.show(.error(isLoading ? L("Modello in caricamento…") : L("Modello non disponibile")))
             return
         }
         guard Permissions.microphone else {
             hotkey.reset()
-            hud.show(.error("Serve il permesso Microfono"))
+            hud.show(.error(L("Serve il permesso Microfono")))
             Windows.show(.overview)
             return
         }
@@ -156,9 +160,17 @@ import AVFoundation
             }
         }
         hud.show(.listening(mode), delay: 0.15)
+        if Prefs.livePreview.value {
+            livePreview.start(recorder: recorder, language: Prefs.speech, dictionary: DictionaryStore.shared.current) {
+                [weak self] text in self?.hud.setLiveText(text)
+            }
+        }
         Task { [weak self] in
             try? await Task.sleep(for: .seconds(0.15))
             if self?.isRecording == true { self?.play("Tink") }
+            // L'audio si ferma solo per una dettatura vera: un tap o ⌘C col ⌘ destro durano meno di minHold.
+            try? await Task.sleep(for: .seconds(Hotkey.minHold - 0.15))
+            if let self, self.isRecording, !MeetingRecorder.shared.isRecording { self.mediaPause.begin() }
         }
         let limit = max(10, Prefs.maxRecordingSec.value)
         maxTimer?.cancel()
@@ -179,10 +191,16 @@ import AVFoundation
         let segment = Array(pending[..<cut])
         committed += cut
         let previous = segmentTasks.last
+        let language = Prefs.speech
         segmentTasks.append(Task.detached(priority: .userInitiated) {
             _ = try? await previous?.value
-            return try await Transcriber.shared.transcribe(segment, terms: terms)
+            return try await Transcriber.shared.transcribe(segment, terms: terms, language: language)
         })
+        // L'anteprima dal vivo riparte dopo questo segmento appena è trascritto.
+        let task = segmentTasks[segmentTasks.count - 1], upTo = committed, session = livePreview.session
+        Task { [weak self] in
+            if let tr = try? await task.value { self?.livePreview.segmentFinished(tr.raw, upTo: upTo, session: session) }
+        }
         log.info("segmento \(segmentTasks.count): \(String(format: "%.1f", Recorder.duration(segment))) s in background")
     }
 
@@ -195,18 +213,22 @@ import AVFoundation
     private func cancel() {
         maxTimer?.cancel()
         segmentLoop?.cancel()
+        mediaPause.end()
+        livePreview.stop()
         segmentTasks = []
         guard isRecording else { return }
         recorder.cancel()
         isRecording = false
         // Esc in mani libere è una scelta esplicita: si conferma. Gli altri annullamenti (tap breve,
         // ⌘ destro usato come modificatore) restano silenziosi.
-        if mode == .handsFree { hud.show(.notice("Dettatura annullata", symbol: "xmark")) } else { hud.hide() }
+        if mode == .handsFree { hud.show(.notice(L("Dettatura annullata"), symbol: "xmark")) } else { hud.hide() }
     }
 
     private func stop() {
         maxTimer?.cancel()
         segmentLoop?.cancel()
+        mediaPause.end()
+        livePreview.stop()
         guard isRecording else { return }
         let releasedAt = Date()
         let samples = recorder.stop()
@@ -217,7 +239,7 @@ import AVFoundation
         let threshold = Float(Prefs.silenceRMS.value)
         guard Recorder.duration(samples) >= Hotkey.minHold else { hud.hide(); return }
         guard Recorder.hasVoice(samples, threshold: threshold) else {
-            hud.show(.notice("Non ho sentito nulla", symbol: "mic.slash"))
+            hud.show(.notice(L("Non ho sentito nulla"), symbol: "mic.slash"))
             return
         }
         hud.show(.processing)
@@ -238,11 +260,12 @@ import AVFoundation
         do {
             // Command Mode: la selezione si legge mentre Parakeet trascrive l'istruzione.
             let terms = Prefs.boostTerms(dictionary)
+            let language = Prefs.speech
             let tail = Array(samples[tailStart...])
             async let transcription: Transcription = {
                 var parts: [Transcription] = []
                 for segment in segments { parts.append(try await segment.value) }
-                parts.append(try await Transcriber.shared.transcribe(tail, terms: terms))
+                parts.append(try await Transcriber.shared.transcribe(tail, terms: terms, language: language))
                 return Transcription.merge(parts)
             }()
             let selection: String? = mode == .command ? await Paster.copySelection() : nil
@@ -262,7 +285,7 @@ import AVFoundation
             } else {
                 let llm = profile.usesLLM(Prefs.llmProfiles.value) ? Prefs.llm() : nil
                 let pp = await PostProcess.run(raw: tr.boosted, profile: profile, dictionary: dictionary,
-                                               sendOnInvia: Prefs.sendOnInvia.value, llm: llm)
+                                               sendOnInvia: Prefs.sendOnInvia.value, language: Prefs.speech, llm: llm)
                 text = pp.text
                 send = pp.send
                 entry.llm = pp.llmUsed
@@ -270,7 +293,7 @@ import AVFoundation
                 entry.guardrail = pp.guardrail
             }
 
-            guard !text.isEmpty else { hud.show(.notice("Nessuna parola riconosciuta", symbol: "text.badge.xmark")); return }
+            guard !text.isEmpty else { hud.show(.notice(L("Nessuna parola riconosciuta"), symbol: "text.badge.xmark")); return }
             await Paster.insert(text, newlineKey: mode == .command ? "return" : profile.newlineKey,
                                 pressReturn: send, restoreAfterMs: Prefs.restoreClipboardMs.value)
             entry.ms = Int(Date().timeIntervalSince(releasedAt) * 1000)
@@ -292,7 +315,7 @@ import AVFoundation
     /// (il HUD spiega perché).
     private func runCommand(_ spoken: String, on selection: String?, dictionary: PersonalDictionary,
                             entry: inout History.Entry) async -> String? {
-        guard let selection, !selection.isEmpty else { hud.show(.error("Nessun testo selezionato")); return nil }
+        guard let selection, !selection.isEmpty else { hud.show(.error(L("Nessun testo selezionato"))); return nil }
         let instruction = Rules.tidy(dictionary.apply(spoken))
         let config = Prefs.llm(command: true)
         let t0 = Date()
@@ -303,7 +326,7 @@ import AVFoundation
                 maxTokens: LLMClient.maxTokens(for: selection + instruction, floor: 256) * 2)
         } catch {
             log.error("command: \(error.localizedDescription)")
-            hud.show(.error("Comando: \(LLMClient.headline(error))"))
+            hud.show(.error(L("Comando: %@", LLMClient.headline(error))))
             return nil
         }
         entry.llm_ms = Int(Date().timeIntervalSince(t0) * 1000)
@@ -312,7 +335,7 @@ import AVFoundation
         // Un modello troppo piccolo a volte restituisce la selezione così com'è: incollarla non cambierebbe nulla.
         if PersonalDictionary.key(text) == PersonalDictionary.key(selection) {
             log.info("command: testo invariato (\(config.model))")
-            hud.show(.notice("Il modello non ha cambiato il testo", symbol: "equal.circle"))
+            hud.show(.notice(L("Il modello non ha cambiato il testo"), symbol: "equal.circle"))
             return nil
         }
         return text

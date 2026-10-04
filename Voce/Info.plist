@@ -4,6 +4,11 @@
 <dict>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>it</string>
+	<key>CFBundleLocalizations</key>
+	<array>
+		<string>it</string>
+		<string>en</string>
+	</array>
 	<key>CFBundleExecutable</key>
 	<string>Voce</string>
 	<key>CFBundleIconFile</key>
@@ -26,6 +31,8 @@
 	<true/>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Voce trascrive la tua voce in locale mentre tieni premuto il tasto di dettatura. L'audio non lascia mai il Mac.</string>
+	<key>NSAudioCaptureUsageDescription</key>
+	<string>Voce registra l'audio del Mac (le voci degli altri durante una riunione) per trascriverlo in locale. L'audio non lascia mai il Mac.</string>
 	<key>NSHumanReadableCopyright</key>
 	<string>Parakeet TDT (NVIDIA) — CC-BY-4.0, via FluidAudio.</string>
 </dict>

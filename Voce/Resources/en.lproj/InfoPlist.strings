@@ -1,0 +1,2 @@
+"NSMicrophoneUsageDescription" = "Voce transcribes your voice locally while you hold the dictation key. The audio never leaves your Mac.";
+"NSAudioCaptureUsageDescription" = "Voce records your Mac's audio (the other people's voices in a meeting) to transcribe it locally. The audio never leaves your Mac.";

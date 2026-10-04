@@ -39,24 +39,24 @@ extension Controller {
         }
         var short: String {
             switch self {
-            case .loading: return "Preparazione…"
-            case .failed: return "Errore del modello"
-            case .permissions: return "Mancano permessi"
-            case .hotkeyInactive: return "Tasto non attivo"
-            case .ready: return "Pronto"
-            case .recording: return "In ascolto"
-            case .processing: return "Trascrivo…"
+            case .loading: return L("Preparazione…")
+            case .failed: return L("Errore del modello")
+            case .permissions: return L("Mancano permessi")
+            case .hotkeyInactive: return L("Tasto non attivo")
+            case .ready: return L("Pronto")
+            case .recording: return L("In ascolto")
+            case .processing: return L("Trascrivo…")
             }
         }
         var long: String {
             switch self {
-            case .loading(let p): return p > 0 ? "Preparazione del modello… \(Int(p * 100))%" : "Preparazione del modello…"
-            case .failed(let e): return "Errore del modello: \(e)"
-            case .permissions: return "Mancano dei permessi"
-            case .hotkeyInactive: return "Tasto di dettatura non attivo"
-            case .ready(let key): return "Pronto · tieni premuto \(key)"
-            case .recording: return "In ascolto…"
-            case .processing: return "Trascrivo…"
+            case .loading(let p): return p > 0 ? L("Preparazione del modello… %ld%%", Int(p * 100)) : L("Preparazione del modello…")
+            case .failed(let e): return L("Errore del modello: %@", e)
+            case .permissions: return L("Mancano dei permessi")
+            case .hotkeyInactive: return L("Tasto di dettatura non attivo")
+            case .ready(let key): return L("Pronto · tieni premuto %@", key)
+            case .recording: return L("In ascolto…")
+            case .processing: return L("Trascrivo…")
             }
         }
     }

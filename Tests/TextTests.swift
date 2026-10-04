@@ -51,6 +51,39 @@ import Testing
     }
 }
 
+@Suite struct EnglishSpeechTests {
+    @Test func englishVoiceCommands() {
+        let out = Rules.apply("First line, new line, second line. New paragraph. Third.", profile: .plain, sendOnInvia: false)
+        #expect(out.text == "First line\nSecond line.\n\nThird.")
+    }
+
+    @Test func newLineDescribedIsNotACommand() {
+        for text in ["Add a new line character at the end.", "Insert the new line after the header.",
+                     "Write a new line of code."] {
+            #expect(Rules.apply(text, profile: .plain, sendOnInvia: false).text == text)
+        }
+    }
+
+    @Test func englishFillers() {
+        let out = Rules.apply("Hmm, so, um, erm let's ship it.", profile: .plain, sendOnInvia: false)
+        #expect(out.text == "So, let's ship it.")
+    }
+
+    @Test func sendAtTheEndOnAgents() {
+        let out = Rules.apply("Run the tests and fix the errors, send.", profile: .agentTerminal, sendOnInvia: true)
+        #expect(out == RulesOutput(text: "Run the tests and fix the errors", send: true))
+        #expect(Rules.apply("Send the email to Marco.", profile: .agentIDE, sendOnInvia: true).send == false)
+    }
+
+    @Test func languageChoiceLimitsTheCommands() {
+        let mixed = "Riga uno, a capo, line two, new line, three"
+        #expect(Rules.apply(mixed, profile: .plain, sendOnInvia: false, language: .auto).text == "Riga uno\nLine two\nThree")
+        #expect(Rules.apply(mixed, profile: .plain, sendOnInvia: false, language: .it).text == "Riga uno\nLine two, new line, three")
+        #expect(Rules.apply(mixed, profile: .plain, sendOnInvia: false, language: .en).text == "Riga uno, a capo, line two\nThree")
+        #expect(Rules.apply("Fatto, invia", profile: .agentTerminal, sendOnInvia: true, language: .en).send == false)
+    }
+}
+
 @Suite struct DictionaryTests {
     let dict = PersonalDictionary(
         terms: ["Claude Code", "useEffect", "PostgreSQL", "Next.js", "user_id", "kubectl"],

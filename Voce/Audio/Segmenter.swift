@@ -23,18 +23,19 @@ enum Segmenter {
         return best + frame / 2
     }
 
-    /// Concatena i testi: se il segmento precedente non chiude la frase, la maiuscola "di segmento"
-    /// che Parakeet mette all'inizio diventa minuscola (salvo sigle come "API").
+    /// Parakeet mette la maiuscola all'inizio di ogni segmento: se il testo che precede non chiude la frase,
+    /// quella "di segmento" diventa minuscola (salvo sigle come "API").
+    static func continuing(_ next: String, after previous: String) -> String {
+        guard let last = previous.last, !".!?…:".contains(last), let f = next.first, f.isUppercase,
+              next.dropFirst().first.map({ $0.isLowercase }) ?? false else { return next }
+        return f.lowercased() + next.dropFirst()
+    }
+
+    /// Concatena i testi dei segmenti, correggendo la maiuscola iniziale con `continuing`.
     static func join(_ parts: [String]) -> String {
         var out = ""
         for part in parts.map({ $0.trimmingCharacters(in: .whitespacesAndNewlines) }) where !part.isEmpty {
-            guard let last = out.last else { out = part; continue }
-            var next = part
-            if !".!?…:".contains(last), let f = next.first, f.isUppercase,
-               next.dropFirst().first.map({ $0.isLowercase }) ?? false {
-                next = f.lowercased() + next.dropFirst()
-            }
-            out += " " + next
+            out = out.isEmpty ? part : out + " " + continuing(part, after: out)
         }
         return out
     }

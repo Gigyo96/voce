@@ -51,10 +51,10 @@ import IOKit.hid
 
         /// Perché non va bene come tasto di dettatura (`nil` se va bene).
         var problem: String? {
-            if keyCode == kVK_CapsLock { return "Bloc Maiusc non si può tenere premuto: scegli un altro tasto." }
+            if keyCode == kVK_CapsLock { return L("Bloc Maiusc non si può tenere premuto: scegli un altro tasto.") }
             if isModifierKey || Keys.bareAllowed(keyCode) { return nil }
             if flags.intersection([.maskCommand, .maskControl]).isEmpty {
-                return "Questo tasto scrive un carattere: aggiungi ⌃ o ⌘, oppure usa un tasto funzione (F1–F20)."
+                return L("Questo tasto scrive un carattere: aggiungi ⌃ o ⌘, oppure usa un tasto funzione (F1–F20).")
             }
             return nil
         }
@@ -68,7 +68,7 @@ import IOKit.hid
         case space, doubleTap, off
         @MainActor func keys(_ t: Trigger) -> [String] {
             switch self {
-            case .space: return [t.label, "Spazio"]
+            case .space: return [t.label, L("Spazio")]
             case .doubleTap: return [t.label, t.label]
             case .off: return []
             }

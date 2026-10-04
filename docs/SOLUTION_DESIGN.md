@@ -22,6 +22,12 @@
 >   Scorciatoie, Funzioni AI, Generale) al posto delle sole impostazioni del §8.
 > - **Servizi AI**: preset per LM Studio, Ollama, Groq, Cerebras, Gemini, Claude, OpenAI e OpenRouter; una chiave
 >   nel Portachiavi per ogni servizio; i comandi possono usare un servizio dedicato.
+> - **Italiano e inglese**: interfaccia traducibile (String Catalog letto a runtime, Generale › Lingua dell'app) e
+>   comandi vocali in entrambe le lingue (Generale › Lingua della dettatura). Parakeet riconosce già entrambe.
+> - **Testo dal vivo** nel HUD (il §8 diceva "niente anteprima"): Parakeet ritrascrive la coda ogni 0,5 s, senza modelli
+>   di streaming aggiuntivi (Unified è solo inglese, Nemotron sarebbe un secondo modello da 600 MB).
+> - **Pausa dell'audio** durante la dettatura (non prevista): volume a zero con dissolvenza via Core Audio e
+>   Play/Pausa simulato per le app multimediali, ripresa automatica alla fine.
 > - **CLI** `Voce transcribe` nello stesso binario, usata da `tools/eval.py`; `Voce snapshot` per le immagini della UI.
 
 ---
@@ -493,6 +499,54 @@ Solo le voci dell'Appendice A di cui si è verificata la condizione di attivazio
 | `voce-bench` con matrice 6×6 | Ci sono più di 3 configurazioni candidate |
 | Fine-tune LoRA del modello di cleanup | L'LLM serve su volumi alti e la qualità non basta |
 | Apprendimento dalle correzioni | Il dizionario si aggiorna a mano più di una volta al giorno |
+
+---
+
+## Appendice B — Modalità riunione e audio durante la dettatura (v1.1)
+
+Richiesta: registrare o importare l'audio di una riunione, trascriverlo, dare un nome ai parlanti, fare domande a un LLM;
+e rendere configurabile cosa succede all'audio del Mac mentre si detta. Riferimento di prodotto: [Vowen](https://vowen.featurebase.app/changelog)
+(registrazione di sistema con motore nativo, tracce microfono/sistema separate, diarizzazione, «Ask AI» sulle note,
+pausa del media in registrazione).
+
+### B.1 Cattura
+
+| Scelta | Perché |
+|---|---|
+| **Core Audio process tap** (`CATapDescription` mono globale, Voce esclusa, in un dispositivo aggregato privato) | macOS 14.2+; nessun permesso di registrazione schermo (solo «Registrazione audio di sistema»); non dipende dal volume; ScreenCaptureKit richiederebbe lo schermo e il suo stream audio è meno affidabile con le cuffie Bluetooth |
+| Microfono e sistema in **due tracce** su disco (CAF 16 kHz mono) | «Io» si sa senza indovinare; la diarizzazione lavora sulle sole voci degli altri; la registrazione non sta in memoria e sopravvive a una chiusura brusca |
+| Microfono avviato **prima** del tap; tap riavviato al cambio dell'uscita | Con AirPods il contrario lascia il microfono muto; il dispositivo di riferimento dell'aggregato sparisce quando si scollegano |
+| Allineamento con l'*host time* del primo campione di ogni traccia | Microfono e tap partono con scarti di decine di ms |
+| **Filtro dell'eco** (`EchoGate`) invece dell'AEC di sistema | Senza cuffie il microfono ripete gli altri. Primo tentativo (2026-10-04), sui soli livelli, fallito nella prova reale (YouTube dalle casse): sul portatile il rientro supera −9 dB e il microfono risultava un terzo parlante. Ora: ritardo microfono↔sistema con GCC-PHAT (nessun picco = cuffie = niente da fare), poi **coerenza spettrale** (200–4000 Hz, FFT 2048, 1,5 s) ogni 0,5 s: due voci indipendenti stanno sotto 0,1, un'eco sopra 0,6 anche con riflessioni e saturazione; sopra 0,3 con l'audio del Mac attivo il pezzo di microfono si azzera. In più, rete di sicurezza sul testo (`removeEcho`: parole del microfono già dette dall'altra traccia entro 1,5 s). Voice Processing IO fa AEC vera ma cambia formato e volume dell'uscita. Limite: soglie tarate su segnali simulati e su una prova reale |
+
+### B.2 Elaborazione
+
+1. **Parole con i tempi**: stessa finestratura delle dettature lunghe (tagli nelle pause, finestre < 15 s), ogni finestra
+   una richiesta a sé, così una dettatura non aspetta un'intera riunione. Token SentencePiece → parole con
+   `buildWordTimings`. Niente boosting CTC (serve il testo, non i termini); il dizionario si applica dopo.
+2. **Parlanti**: `OfflineDiarizerManager` di FluidAudio (pyannote community-1 + WeSpeaker + VBx; DER 17,7% su AMI-SDM, offline).
+   Si applica alla traccia di sistema (o al file importato); la traccia del microfono è sempre «Io». Ogni parola va al parlante
+   attivo nel suo punto medio, altrimenti al più vicino entro 1,5 s.
+3. **Misura** (M2 8 GB, build debug, dialogo sintetico a due voci): 29 min di audio in 46 s, due parlanti separati dall'inizio alla fine.
+4. Mix AAC 32 kb/s (~15 MB/ora) per riascoltare; le tracce grezze si cancellano a elaborazione riuscita; un file importato resta com'è.
+
+### B.3 AI di testo
+
+- Stesso servizio dei comandi sul testo (Funzioni AI), attesa 120 s, risposta in **streaming** (SSE) con i blocchi `<think>` nascosti.
+- Contesto: la trascrizione intera se sta nel budget (60% dei token del contesto impostato), altrimenti **appunti per blocchi**
+  (map: ~12 000 caratteri alla volta, conservati con la riunione) più i **passaggi più attinenti** alla domanda (tf-idf su radici
+  di 5 lettere, senza embedding: nessun modello in più da scaricare). Una rinomina dei parlanti invalida gli appunti.
+- Riepilogo (titolo + sintesi, decisioni, azioni, domande aperte), chat con cronologia e citazione del minuto, «Suggerisci nomi»
+  (JSON `{s1: nome|null}` da presentazioni e vocativi). Provato con gemma3:4b su Ollama.
+- Rinviati: profili vocali tra riunioni (embedding per nome), rilevamento automatico dell'inizio di una chiamata, riepilogo con template.
+
+### B.4 Audio durante la dettatura
+
+Tre modalità al posto dell'interruttore: *non toccarlo*, *fermalo del tutto* (volume a zero + Play/Pausa, come prima),
+*abbassa* (volume a una percentuale 0–90% dell'originale, nessun Play/Pausa). La percentuale è relativa al volume che
+l'utente aveva, e il recupero dopo una chiusura brusca ripristina solo se il volume è ancora dove Voce l'aveva lasciato.
+Durante una riunione la funzione è sospesa. Con uscite senza controllo del volume «abbassa» non può agire (un volume per
+processo richiederebbe di rimixare l'audio con un tap).
 
 ---
 

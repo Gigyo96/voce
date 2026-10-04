@@ -13,8 +13,8 @@ struct PostProcessResult: Sendable {
 enum PostProcess {
     /// Regole + dizionario (sempre), poi LLM solo se il profilo lo prevede. Ogni errore ricade sull'output delle regole.
     static func run(raw: String, profile: Profile, dictionary: PersonalDictionary, sendOnInvia: Bool,
-                    llm: LLMConfig?) async -> PostProcessResult {
-        let ruled = Rules.apply(raw, profile: profile, sendOnInvia: sendOnInvia)
+                    language: SpeechLanguage = .auto, llm: LLMConfig?) async -> PostProcessResult {
+        let ruled = Rules.apply(raw, profile: profile, sendOnInvia: sendOnInvia, language: language)
         let base = Rules.tidy(dictionary.apply(ruled.text))
         var result = PostProcessResult(text: base, send: ruled.send, llmUsed: false)
         guard let llm, !base.isEmpty else { return result }

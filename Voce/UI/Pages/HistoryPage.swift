@@ -16,8 +16,8 @@ struct HistoryPage: View {
         Group {
             if entries.isEmpty {
                 if search.isEmpty {
-                    ContentUnavailableView("Ancora nessuna dettatura", systemImage: "clock",
-                                           description: Text("Tieni premuto il tasto di dettatura in qualsiasi app e parla."))
+                    ContentUnavailableView(L("Ancora nessuna dettatura"), systemImage: "clock",
+                                           description: Text(L("Tieni premuto il tasto di dettatura in qualsiasi app e parla.")))
                 } else {
                     ContentUnavailableView.search(text: search)
                 }
@@ -38,14 +38,14 @@ struct HistoryPage: View {
                 .listStyle(.inset)
             }
         }
-        .searchable(text: $search, placement: .toolbar, prompt: "Cerca nelle dettature")
+        .searchable(text: $search, placement: .toolbar, prompt: L("Cerca nelle dettature"))
     }
 
     private static func title(_ day: Date) -> String {
         let cal = Calendar.current
-        if cal.isDateInToday(day) { return "Oggi" }
-        if cal.isDateInYesterday(day) { return "Ieri" }
-        return day.formatted(.dateTime.weekday(.wide).day().month(.wide).locale(Locale(identifier: "it_IT")))
+        if cal.isDateInToday(day) { return L("Oggi") }
+        if cal.isDateInYesterday(day) { return L("Ieri") }
+        return day.formatted(.dateTime.weekday(.wide).day().month(.wide).locale(Loc.locale))
     }
 }
 
@@ -71,9 +71,9 @@ private struct HistoryRow: View {
                 Button { copy(entry.final); copied = true } label: {
                     Image(systemName: copied ? "checkmark" : "doc.on.doc")
                 }
-                .help("Copia")
+                .help(L("Copia"))
                 Button(action: onCorrect) { Image(systemName: "character.book.closed") }
-                    .help("Correggi una parola: crea una voce nel dizionario")
+                    .help(L("Correggi una parola: crea una voce nel dizionario"))
             }
             .buttonStyle(.borderless)
             .opacity(hover ? 1 : 0)
@@ -82,16 +82,16 @@ private struct HistoryRow: View {
         .contentShape(Rectangle())
         .onHover { hover = $0; if !$0 { copied = false } }
         .contextMenu {
-            Button("Copia testo") { copy(entry.final) }
-            Button("Copia trascrizione grezza") { copy(entry.raw) }
-            Button("Correggi una parola…", action: onCorrect)
+            Button(L("Copia testo")) { copy(entry.final) }
+            Button(L("Copia trascrizione grezza")) { copy(entry.raw) }
+            Button(L("Correggi una parola…"), action: onCorrect)
         }
     }
 
     /// "Slack · 10:42 · Comando · AI · 0,4 s"
     private func meta(_ appName: String) -> String {
         var parts = [appName, entry.date.map { $0.formatted(date: .omitted, time: .shortened) } ?? ""]
-        if entry.mode == "command" { parts.append("Comando") } else if entry.llm { parts.append("Riscritto con AI") }
+        if entry.mode == "command" { parts.append(L("Comando")) } else if entry.llm { parts.append(L("Riscritto con AI")) }
         parts.append(secondsText(entry.ms))
         return parts.filter { !$0.isEmpty }.joined(separator: " · ")
     }

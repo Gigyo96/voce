@@ -46,17 +46,17 @@ enum Keys {
     @MainActor static func label(_ code: Int) -> String {
         if let i = fKeys.firstIndex(of: code) { return "F\(i + 1)" }
         switch code {
-        case kVK_Command: return "⌘ sinistro"
-        case kVK_RightCommand: return "⌘ destro"
-        case kVK_Shift: return "⇧ sinistro"
-        case kVK_RightShift: return "⇧ destro"
-        case kVK_Option: return "⌥ sinistro"
-        case kVK_RightOption: return "⌥ destro"
-        case kVK_Control: return "⌃ sinistro"
-        case kVK_RightControl: return "⌃ destro"
+        case kVK_Command: return L("⌘ sinistro")
+        case kVK_RightCommand: return L("⌘ destro")
+        case kVK_Shift: return L("⇧ sinistro")
+        case kVK_RightShift: return L("⇧ destro")
+        case kVK_Option: return L("⌥ sinistro")
+        case kVK_RightOption: return L("⌥ destro")
+        case kVK_Control: return L("⌃ sinistro")
+        case kVK_RightControl: return L("⌃ destro")
         case kVK_Function: return "Fn 🌐"
         case kVK_CapsLock: return "⇪"
-        case kVK_Space: return "Spazio"
+        case kVK_Space: return L("Spazio")
         case kVK_Return: return "↩"
         case kVK_ANSI_KeypadEnter: return "⌤"
         case kVK_Tab: return "⇥"
@@ -78,7 +78,7 @@ enum Keys {
         case 0xB2: return "🌙"
         default:
             let c = character(code)
-            return c.isEmpty || c.unicodeScalars.contains(where: { $0.value < 0x20 }) ? "Tasto \(code)" : c.uppercased()
+            return c.isEmpty || c.unicodeScalars.contains(where: { $0.value < 0x20 }) ? L("Tasto %ld", code) : c.uppercased()
         }
     }
 

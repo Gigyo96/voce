@@ -3,14 +3,14 @@ import SwiftUI
 
 struct AIStateLabel: View {
     let state: AIStatus.State
-    var okText = "Collegato: il servizio risponde e il modello è disponibile."
+    var okText = L("Collegato: il servizio risponde e il modello è disponibile.")
 
     var body: some View {
         switch state {
         case .unknown, .checking:
             HStack(spacing: 6) {
                 ProgressView().controlSize(.mini)
-                Text("Controllo il servizio…")
+                Text(L("Controllo il servizio…"))
             }
             .font(.caption).foregroundStyle(.secondary)
         case .ok:
@@ -54,36 +54,36 @@ struct AIServiceEditor: View {
 
     var body: some View {
         Picker(selection: providerBinding) {
-            Section("Sul tuo Mac · gratis, il testo non esce dal computer") {
+            Section(L("Sul tuo Mac · gratis, il testo non esce dal computer")) {
                 ForEach(LLMProvider.onMac) { Text($0.name).tag($0) }
             }
-            Section("Online · serve una chiave API") {
+            Section(L("Online · serve una chiave API")) {
                 ForEach(LLMProvider.online) { Text($0.name).tag($0) }
             }
             Divider()
             Text(LLMProvider.custom.name).tag(LLMProvider.custom)
         } label: {
-            Text("Servizio")
+            Text(L("Servizio"))
             Text(markdown(provider.blurb))
         }
 
         if provider == .custom {
             TextField(text: $baseURL, prompt: Text("http://localhost:8080/v1")) {
-                Text("Indirizzo")
-                Text("L'indirizzo base dell'API, di solito termina con /v1.")
+                Text(L("Indirizzo"))
+                Text(L("L'indirizzo base dell'API, di solito termina con /v1."))
             }
         }
 
         if online {
-            SecureField(text: $key, prompt: Text("incolla qui la chiave")) {
-                Text("Chiave API")
+            SecureField(text: $key, prompt: Text(L("incolla qui la chiave"))) {
+                Text(L("Chiave API"))
                 Text(markdown(keyHelp))
             }
         }
 
         LabeledContent {
             HStack(spacing: 6) {
-                TextField("Modello", text: $model, prompt: Text(placeholder)).labelsHidden()
+                TextField(L("Modello"), text: $model, prompt: Text(placeholder)).labelsHidden()
                 if !models.isEmpty {
                     Menu {
                         ForEach(models, id: \.self) { m in Button(m) { model = m } }
@@ -93,12 +93,12 @@ struct AIServiceEditor: View {
                     .menuStyle(.borderlessButton)
                     .menuIndicator(.hidden)
                     .fixedSize()
-                    .help("Scegli tra i modelli disponibili in questo servizio")
+                    .help(L("Scegli tra i modelli disponibili in questo servizio"))
                 }
             }
         } label: {
-            Text("Modello")
-            Text(role == .main ? "Ne basta uno piccolo e veloce." : "Meglio uno capace di seguire istruzioni.")
+            Text(L("Modello"))
+            Text(role == .main ? L("Ne basta uno piccolo e veloce.") : L("Meglio uno capace di seguire istruzioni."))
         }
 
         HStack(alignment: .top, spacing: 8) {
@@ -113,9 +113,9 @@ struct AIServiceEditor: View {
                 AIStateLabel(state: state)
             }
             Spacer(minLength: 8)
-            Button(testing ? "Provo…" : "Prova") { test() }
+            Button(testing ? L("Provo…") : L("Prova")) { test() }
                 .disabled(testing)
-                .help(role == .main ? "Fa riscrivere una frase d'esempio" : "Fa tradurre una frase d'esempio")
+                .help(role == .main ? L("Fa riscrivere una frase d'esempio") : L("Fa tradurre una frase d'esempio"))
         }
         .onAppear { key = Keychain.apiKey(for: baseURL) ?? "" }
         .onChange(of: baseURL) { _, url in
@@ -140,8 +140,8 @@ struct AIServiceEditor: View {
     }
 
     private var keyHelp: String {
-        var s = "Salvata nel Portachiavi del Mac."
-        if let url = provider.setupURL, let host = url.host() { s += " Non ce l'hai? [Creala su \(host)](\(url.absoluteString))" }
+        var s = L("Salvata nel Portachiavi del Mac.")
+        if let url = provider.setupURL, let host = url.host() { s += " " + L("Non ce l'hai? [Creala su %@](%@)", host, url.absoluteString) }
         return s
     }
 
@@ -166,9 +166,9 @@ struct AIServiceEditor: View {
                                                        config: cfg, maxTokens: 256)
                 }
                 let ms = Int(Date().timeIntervalSince(t0) * 1000)
-                var text = "Risposta in \(secondsText(ms)): «\(out.replacingOccurrences(of: "\n", with: " "))»"
+                var text = L("Risposta in %@: «%@»", secondsText(ms), out.replacingOccurrences(of: "\n", with: " "))
                 if ms > limit {
-                    text += "\nPiù lenta dell'attesa massima (\(secondsText(limit))): riprova, la prima richiesta carica il modello, oppure aumentala."
+                    text += "\n" + L("Più lenta dell'attesa massima (%@): riprova, la prima richiesta carica il modello, oppure aumentala.", secondsText(limit))
                 }
                 testResult = (true, text)
                 status.refresh(delay: .zero)
@@ -190,6 +190,8 @@ struct AIPage: View {
     @AppStorage(Prefs.commandBaseURL) private var commandBaseURL
     @AppStorage(Prefs.commandModel) private var commandModel
     @AppStorage(Prefs.commandTimeoutMs) private var commandTimeoutMs
+    @AppStorage(Prefs.meetingAutoSummary) private var meetingAutoSummary
+    @AppStorage(Prefs.meetingContextTokens) private var meetingContextTokens
     @ObservedObject private var status = AIStatus.shared
     private var trigger: Hotkey.Trigger { Hotkey.Trigger(rawValue: hotkey) ?? .rightCommand }
     private var dedicated: Bool { !commandBaseURL.isEmpty || !commandModel.isEmpty }
@@ -199,45 +201,72 @@ struct AIPage: View {
             Section {
                 AIServiceEditor(baseURL: $llmBaseURL, model: $llmModel, role: .main, timeoutMs: llmTimeoutMs)
             } header: {
-                Text("Servizio")
+                Text(L("Servizio"))
             } footer: {
-                footer("Facoltativo: la dettatura funziona sempre senza. Al servizio va solo il testo, mai l'audio; le chiavi restano nel Portachiavi.")
+                footer(L("Facoltativo: la dettatura funziona sempre senza. Al servizio va solo il testo, mai l'audio; le chiavi restano nel Portachiavi."))
             }
 
             Section {
-                profileToggle("chat", "Messaggi", "Slack, Discord, Telegram, WhatsApp")
-                profileToggle("email", "Email", "Mail, Outlook")
-                profileToggle("plain", "Altre app", "Note, browser, documenti")
+                profileToggle("chat", L("Messaggi"), "Slack, Discord, Telegram, WhatsApp")
+                profileToggle("email", L("Email"), "Mail, Outlook")
+                profileToggle("plain", L("Altre app"), L("Note, browser, documenti"))
+                promptLink(L("Istruzioni e stili"), .cleanup)
                 Stepper(value: $llmTimeoutMs, in: 500...10_000, step: 250) {
-                    Text("Attesa massima \(secondsText(llmTimeoutMs))")
-                    Text("Oltre, incolla il testo senza riscriverlo.")
+                    Text(L("Attesa massima %@", secondsText(llmTimeoutMs)))
+                    Text(L("Oltre, incolla il testo senza riscriverlo."))
                 }
             } header: {
-                Text("Riscrittura")
+                Text(L("Riscrittura"))
             } footer: {
-                footer("Sistema punteggiatura, ripensamenti e tono: «\(AIExample.spoken)» → «\(AIExample.rewritten)». Mai nei terminali e negli editor di codice.")
+                footer(L("Sistema punteggiatura, ripensamenti e tono: «%@» → «%@». Mai nei terminali e negli editor di codice.", AIExample.spoken, AIExample.rewritten))
             }
 
             Section {
-                LabeledContent("Scorciatoia") { Keycaps(trigger.commandKeys) }
-                Picker("Servizio", selection: Binding(get: { dedicated }, set: { setDedicated($0) })) {
-                    Text("Lo stesso della riscrittura").tag(false)
-                    Text("Un servizio dedicato").tag(true)
+                LabeledContent(L("Scorciatoia")) { Keycaps(trigger.commandKeys) }
+                Picker(L("Servizio"), selection: Binding(get: { dedicated }, set: { setDedicated($0) })) {
+                    Text(L("Lo stesso della riscrittura")).tag(false)
+                    Text(L("Un servizio dedicato")).tag(true)
                 }
                 if dedicated {
                     AIServiceEditor(baseURL: $commandBaseURL, model: $commandModel, role: .command, timeoutMs: commandTimeoutMs)
                 } else {
-                    AIStateLabel(state: status.main, okText: "Usa \(LLMProvider.describe(llmBaseURL, llmModel)).")
+                    AIStateLabel(state: status.main, okText: L("Usa %@.", LLMProvider.describe(llmBaseURL, llmModel)))
                 }
-                Stepper("Attesa massima \(secondsText(commandTimeoutMs))", value: $commandTimeoutMs, in: 2000...30_000, step: 1000)
+                Stepper(L("Attesa massima %@", secondsText(commandTimeoutMs)), value: $commandTimeoutMs, in: 2000...30_000, step: 1000)
+                promptLink(L("Istruzioni"), .command)
             } header: {
-                Text("Comandi sul testo selezionato")
+                Text(L("Comandi sul testo selezionato"))
             } footer: {
-                footer("Seleziona un testo, tieni premuti i tasti e di' cosa farne: «traduci in inglese», «rendilo più formale». Per i comandi conviene un modello capace (es. GPT-OSS 120B su Groq o Claude).")
+                footer(L("Seleziona un testo, tieni premuti i tasti e di' cosa farne: «traduci in inglese», «rendilo più formale». Per i comandi conviene un modello capace (es. GPT-OSS 120B su Groq o Claude)."))
+            }
+
+            Section {
+                Toggle(isOn: $meetingAutoSummary) {
+                    Text(L("Riepilogo automatico"))
+                    Text(L("Finita la trascrizione, l'AI scrive riepilogo e titolo."))
+                }
+                Stepper(value: $meetingContextTokens, in: 4_000...128_000, step: 4_000) {
+                    Text(L("Contesto del modello: %@ token", meetingContextTokens.formatted(.number.locale(Loc.locale))))
+                    Text(L("Quanta trascrizione il modello legge in una volta. Per le riunioni più lunghe Voce gli dà un riassunto per blocchi e i passaggi attinenti alla domanda. Con modelli locali piccoli, 4 000–8 000."))
+                }
+                promptLink(L("Istruzioni per riepilogo, chat e nomi"), .meetingSummary)
+                AIStateLabel(state: status.command, okText: L("Usa %@.", LLMProvider.describe(dedicated ? commandBaseURL : llmBaseURL,
+                                                                                             dedicated ? commandModel : llmModel)))
+            } header: {
+                Text(L("Riunioni"))
+            } footer: {
+                footer(L("Riepilogo, domande e nomi dei partecipanti usano il servizio dei comandi sul testo. Al servizio va il testo della trascrizione, mai l'audio. Per riunioni lunghe conviene un modello capace e con un contesto ampio."))
             }
         }
         .formStyle(.grouped)
         .onAppear { status.refresh(delay: .zero) }
+    }
+
+    /// Riga che porta al prompt nella pagina Prompt, con il segno se è stato personalizzato.
+    private func promptLink(_ title: String, _ prompt: PromptID) -> some View {
+        LabeledContent(title) {
+            Button(PromptStore.shared.isCustom(prompt) ? L("Personalizzato · Modifica…") : L("Modifica…")) { Navigation.shared.open(prompt) }
+        }
     }
 
     private func footer(_ text: String) -> some View {

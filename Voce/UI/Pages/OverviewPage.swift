@@ -8,8 +8,10 @@ struct OverviewPage: View {
     @ObservedObject private var controller = Controller.shared
     @ObservedObject private var ai = AIStatus.shared
     @ObservedObject private var nav = Navigation.shared
+    @ObservedObject private var meetings = MeetingStore.shared
     @AppStorage(Prefs.hotkey) private var hotkey
     @AppStorage(Prefs.handsFree) private var handsFree
+    @AppStorage(Prefs.speechLanguage) private var speechLanguage   // i comandi vocali mostrati dipendono dalla lingua
     @AppStorage(Prefs.llmProfiles) private var llmProfiles
     @AppStorage(Prefs.llmBaseURL) private var llmBaseURL
     @AppStorage(Prefs.commandBaseURL) private var commandBaseURL
@@ -41,7 +43,7 @@ struct OverviewPage: View {
         HStack(spacing: 14) {
             AppLogo(size: 52)
             VStack(alignment: .leading, spacing: 3) {
-                Text("Voce").font(.title2.weight(.semibold))
+                Text(L("Voce")).font(.title2.weight(.semibold))
                 HStack(spacing: 6) {
                     Circle().fill(controller.status.tint).frame(width: 7, height: 7)
                     Text(controller.status.long).foregroundStyle(.secondary)
@@ -55,34 +57,34 @@ struct OverviewPage: View {
 
     private var setup: some View {
         Section {
-            permission("Microfono", "mic.fill", .red, ok: mic, why: "Per ascoltarti. L'audio resta sul Mac.") {
+            permission(L("Microfono"), "mic.fill", .red, ok: mic, why: L("Per ascoltarti. L'audio resta sul Mac.")) {
                 AVCaptureDevice.requestAccess(for: .audio) { _ in }
                 Permissions.open("Privacy_Microphone")
             }
-            permission("Accessibilità", "accessibility", .blue, ok: ax, why: "Per sentire il tasto e incollare il testo.") {
+            permission(L("Accessibilità"), "accessibility", .blue, ok: ax, why: L("Per sentire il tasto e incollare il testo.")) {
                 Hotkey.requestAccessibility()
                 Permissions.open("Privacy_Accessibility")
             }
-            permission("Monitoraggio input", "keyboard.fill", .gray, ok: input, why: "Per il tasto anche quando Voce è in secondo piano.") {
+            permission(L("Monitoraggio input"), "keyboard.fill", .gray, ok: input, why: L("Per il tasto anche quando Voce è in secondo piano.")) {
                 Hotkey.requestInputMonitoring()
                 Permissions.open("Privacy_ListenEvent")
             }
-            row("Modello vocale", "waveform", .pink, subtitle: modelSubtitle) {
+            row(L("Modello vocale"), "waveform", .pink, subtitle: modelSubtitle) {
                 switch controller.modelState {
                 case .loading(let p): ProgressView(value: p).frame(width: 90)
                 case .ready: Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
-                case .failed: Button("Riprova") { controller.loadModel() }
+                case .failed: Button(L("Riprova")) { controller.loadModel() }
                 }
             }
         } header: {
-            Text("Prima di iniziare")
+            Text(L("Prima di iniziare"))
         }
     }
 
     private var modelSubtitle: String {
         switch controller.modelState {
-        case .loading: return "Parakeet, ~700 MB solo la prima volta."
-        case .ready: return "Pronto, funziona senza internet."
+        case .loading: return L("Parakeet, ~700 MB solo la prima volta.")
+        case .ready: return L("Pronto, funziona senza internet.")
         case .failed(let e): return e
         }
     }
@@ -90,7 +92,7 @@ struct OverviewPage: View {
     private func permission(_ title: String, _ symbol: String, _ color: Color, ok: Bool, why: String,
                             action: @escaping () -> Void) -> some View {
         row(title, symbol, color, subtitle: why) {
-            if ok { Image(systemName: "checkmark.circle.fill").foregroundStyle(.green) } else { Button("Concedi…", action: action) }
+            if ok { Image(systemName: "checkmark.circle.fill").foregroundStyle(.green) } else { Button(L("Concedi…"), action: action) }
         }
     }
 
@@ -112,20 +114,20 @@ struct OverviewPage: View {
 
     private var usage: some View {
         Section {
-            LabeledContent("Detta: tieni premuto, parla, rilascia") { Keycaps([trigger.label]) }
+            LabeledContent(L("Detta: tieni premuto, parla, rilascia")) { Keycaps([trigger.label]) }
             if let mode = Hotkey.HandsFree(rawValue: handsFree), mode != .off {
-                LabeledContent("Mani libere (tocca il tasto per finire)") { Keycaps(mode.keys(trigger)) }
+                LabeledContent(L("Mani libere (tocca il tasto per finire)")) { Keycaps(mode.keys(trigger)) }
             }
-            LabeledContent("Trasforma il testo selezionato") { Keycaps(trigger.commandKeys) }
-            LabeledContent("Re-incolla l'ultima dettatura") { Keycaps(["⌃", "⌥", "V"]) }
+            LabeledContent(L("Trasforma il testo selezionato")) { Keycaps(trigger.commandKeys) }
+            LabeledContent(L("Re-incolla l'ultima dettatura")) { Keycaps(["⌃", "⌥", "V"]) }
         } header: {
             HStack {
-                Text("Come si usa")
+                Text(L("Come si usa"))
                 Spacer()
-                Button("Cambia scorciatoie…") { nav.page = .shortcuts }.buttonStyle(.link).font(.caption)
+                Button(L("Cambia scorciatoie…")) { nav.page = .shortcuts }.buttonStyle(.link).font(.caption)
             }
         } footer: {
-            Text("Funziona in ogni app. Mentre detti puoi dire «a capo» e «nuovo paragrafo».")
+            Text(L("Funziona in ogni app. Mentre detti puoi dire %@ e %@.", VoiceCommand.newline.spoken, VoiceCommand.paragraph.spoken))
                 .font(.caption).foregroundStyle(.secondary)
         }
     }
@@ -134,16 +136,18 @@ struct OverviewPage: View {
 
     private var features: some View {
         Section {
-            feature("Dizionario", "character.book.closed.fill", .teal,
-                    "Nomi e termini tecnici scritti come vuoi tu", value: (dictionarySummary, nil), page: .dictionary)
-            feature("Riscrittura con AI", "text.badge.checkmark", .blue,
-                    "Punteggiatura, ripensamenti e tono in chat ed email", value: rewriteStatus, page: .ai)
-            feature("Comandi sul testo", "wand.and.stars", .purple,
-                    "«Traduci in inglese», «rendilo più formale»…", value: commandStatus, page: .ai)
+            feature(L("Riunioni"), "person.2.wave.2.fill", .pink,
+                    L("Registra o importa, distingue chi parla, risponde alle tue domande"), value: (meetingSummary, nil), page: .meetings)
+            feature(L("Dizionario"), "character.book.closed.fill", .teal,
+                    L("Nomi e termini tecnici scritti come vuoi tu"), value: (dictionarySummary, nil), page: .dictionary)
+            feature(L("Riscrittura con AI"), "text.badge.checkmark", .blue,
+                    L("Punteggiatura, ripensamenti e tono in chat ed email"), value: rewriteStatus, page: .ai)
+            feature(L("Comandi sul testo"), "wand.and.stars", .purple,
+                    L("«Traduci in inglese», «rendilo più formale»…"), value: commandStatus, page: .ai)
         } header: {
-            Text("Funzioni")
+            Text(L("Funzioni"))
         } footer: {
-            Text("L'audio non lascia mai il Mac. Con un servizio AI online viene inviato solo il testo, solo per riscrittura e comandi.")
+            Text(L("L'audio non lascia mai il Mac. Con un servizio AI online viene inviato solo il testo, solo per riscrittura, comandi e riunioni."))
                 .font(.caption).foregroundStyle(.secondary)
         }
     }
@@ -170,15 +174,20 @@ struct OverviewPage: View {
 
     private var dictionarySummary: String {
         let d = DictionaryStore.shared.current
-        return "\(d.terms.count) \(d.terms.count == 1 ? "termine" : "termini")"
+        return d.terms.count == 1 ? L("1 termine") : L("%ld termini", d.terms.count)
+    }
+
+    private var meetingSummary: String {
+        let count = meetings.meetings.count
+        return count == 1 ? L("1 riunione") : L("%ld riunioni", count)
     }
 
     private var rewriteStatus: (String, Color?) {
         let on = ["chat", "email", "plain"].contains { Profile(rawValue: $0)?.usesLLM(llmProfiles) ?? false }
-        guard on else { return ("Spenta", nil) }
+        guard on else { return (L("Spenta"), nil) }
         switch ai.main {
         case .ok: return (LLMProvider.matching(llmBaseURL).name, .green)
-        case .failed: return ("Da configurare", .orange)
+        case .failed: return (L("Da configurare"), .orange)
         case .unknown, .checking: return ("…", nil)
         }
     }
@@ -188,7 +197,7 @@ struct OverviewPage: View {
         case .ok:
             let own = !commandBaseURL.isEmpty
             return (LLMProvider.matching(own ? commandBaseURL : llmBaseURL).name, .green)
-        case .failed: return ("Da configurare", .orange)
+        case .failed: return (L("Da configurare"), .orange)
         case .unknown, .checking: return ("…", nil)
         }
     }
@@ -199,10 +208,10 @@ struct OverviewPage: View {
         let entries = controller.history.filter { $0.date.map(Calendar.current.isDateInToday) ?? false }
         let words = entries.reduce(0) { $0 + $1.final.split(whereSeparator: \.isWhitespace).count }
         let latency = entries.map(\.ms).sorted()
-        return Section("Oggi") {
-            LabeledContent("Dettature", value: "\(entries.count)")
-            LabeledContent("Parole", value: "\(words)")
-            if !latency.isEmpty { LabeledContent("Attesa tipica", value: secondsText(latency[latency.count / 2])) }
+        return Section(L("Oggi")) {
+            LabeledContent(L("Dettature"), value: "\(entries.count)")
+            LabeledContent(L("Parole"), value: "\(words)")
+            if !latency.isEmpty { LabeledContent(L("Attesa tipica"), value: secondsText(latency[latency.count / 2])) }
         }
     }
 }
