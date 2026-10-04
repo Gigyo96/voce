@@ -1,5 +1,6 @@
 import Carbon.HIToolbox
 import CoreGraphics
+import AppKit
 import Foundation
 import Testing
 @testable import Voce
@@ -111,5 +112,29 @@ import Testing
         // Tastiera che non imposta i bit del lato: vale il flag generico.
         #expect(Keys.isPressed(kVK_RightOption, .maskAlternate))
         #expect(!Keys.isPressed(kVK_RightOption, []))
+    }
+}
+
+@Suite @MainActor struct PasterTests {
+    /// Appunti privati, per non toccare quelli dell'utente.
+    private func pasteboard(_ type: String, _ data: Data) -> NSPasteboard {
+        let pb = NSPasteboard(name: .init("voce-test-\(UUID().uuidString)"))
+        pb.clearContents()
+        pb.declareTypes([.string, .init(type)], owner: nil)
+        pb.setString("    let x = 1", forType: .string)
+        pb.setData(data, forType: .init(type))
+        return pb
+    }
+
+    @Test func recognisesTheLineVSCodeCopiesWithoutSelection() {
+        let json = #"{"version":1,"isFromEmptySelection":true,"multicursorText":null,"mode":"swift"}"#
+        // Chromium: tipi personalizzati in un blob con stringhe UTF-16 (little endian), preceduti da lunghezze.
+        var blob = Data([2, 0, 0, 0])
+        blob += json.data(using: .utf16LittleEndian)!
+        #expect(Paster.isEmptySelectionCopy(pasteboard("org.chromium.web-custom-data", blob)))
+        #expect(Paster.isEmptySelectionCopy(pasteboard("vscode-editor-data", Data(json.utf8))))
+        let selected = json.replacingOccurrences(of: "true", with: "false")
+        #expect(!Paster.isEmptySelectionCopy(pasteboard("org.chromium.web-custom-data", selected.data(using: .utf16LittleEndian)!)))
+        #expect(!Paster.isEmptySelectionCopy(pasteboard("public.rtf", Data(json.utf8))))
     }
 }

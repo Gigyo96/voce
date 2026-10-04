@@ -135,7 +135,7 @@ struct GeneralPage: View {
     }
 
     private var mediaModeHelp: String {
-        switch MediaMode(rawValue: mediaMode) ?? .pause {
+        switch MediaMode(rawValue: mediaMode) ?? .lower {
         case .off: return L("Musica e video continuano a suonare mentre parli.")
         case .pause: return L("Musica e video sfumano e si fermano, poi ripartono quando hai finito. Gli altri suoni vengono azzerati.")
         case .lower: return L("Tutto resta in riproduzione, ma più piano: il volume torna com'era quando hai finito.")

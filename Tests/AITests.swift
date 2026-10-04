@@ -66,6 +66,38 @@ import Testing
         #expect(url(LLMProvider.openRouter.baseURL) == "https://openrouter.ai/api/v1/chat/completions")
     }
 
+    /// Il corpo JSON di una richiesta `chat/completions` per un servizio e un modello.
+    private func body(_ baseURL: String, _ model: String, maxTokens: Int = 64) throws -> [String: Any] {
+        let cfg = LLMConfig(baseURL: baseURL, model: model, apiKey: "k", timeout: 1)
+        let req = try LLMClient.chatRequest([.init(role: "user", content: "ciao")], config: cfg, temperature: 0,
+                                            maxTokens: maxTokens, stream: false)
+        return try JSONSerialization.jsonObject(with: req.httpBody ?? Data()) as? [String: Any] ?? [:]
+    }
+
+    @Test func openAIGetsMaxCompletionTokensAndDefaultTemperature() throws {
+        let gpt = try body("https://api.openai.com/v1", "gpt-6-luna")
+        #expect(gpt["max_tokens"] == nil)
+        #expect(gpt["max_completion_tokens"] != nil)
+        #expect(gpt["temperature"] == nil)   // i modelli che ragionano accettano solo quella predefinita
+        let classic = try body("https://api.openai.com/v1", "gpt-4.1-mini")
+        #expect(classic["max_completion_tokens"] as? Int == 64)
+        #expect(classic["temperature"] as? Double == 0)
+        let groq = try body("https://api.groq.com/openai", "llama-4-scout")
+        #expect(groq["max_tokens"] as? Int == 64)
+        #expect(groq["max_completion_tokens"] == nil)
+    }
+
+    @Test func reasoningModelsGetRoomToThink() throws {
+        for (url, model) in [("https://api.groq.com/openai", "openai/gpt-oss-20b"),
+                             ("https://generativelanguage.googleapis.com/v1beta/openai", "gemini-3.5-flash-lite"),
+                             ("https://openrouter.ai/api/v1", "openai/gpt-5-mini")] {
+            let b = try body(url, model)
+            #expect(b["reasoning_effort"] != nil, "\(model)")
+            #expect((b["max_tokens"] as? Int ?? 0) == 64 + LLMClient.reasoningAllowance, "\(model)")
+        }
+        #expect(try body("http://localhost:11434", "qwen3:1.7b")["max_tokens"] as? Int == 64)
+    }
+
     @Test func providerFromAddress() {
         #expect(LLMProvider.matching("http://127.0.0.1:11434/v1") == .ollama)
         #expect(LLMProvider.matching("http://localhost:1234") == .lmStudio)

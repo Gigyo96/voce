@@ -1,4 +1,4 @@
-import AppKit
+import Foundation
 
 // MARK: - Profilo (§3.3)
 
@@ -20,16 +20,12 @@ enum Profile: String, CaseIterable, Sendable {
         }
     }
 
-    @MainActor static var current: Profile { from(bundleID: NSWorkspace.shared.frontmostApplication?.bundleIdentifier) }
-
     var isAgent: Bool { self == .agentIDE || self == .agentTerminal }
 
     /// `llmProfiles` è una lista separata da virgole, modificabile da Impostazioni (default "chat,email").
     func usesLLM(_ llmProfiles: String) -> Bool {
         llmProfiles.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) }.contains(rawValue)
     }
-
-    var newlineKey: String { self == .agentTerminal ? "shift+return" : "return" }
 
     /// Il prompt dello stile per questo profilo (personalizzabile nella pagina Prompt).
     var stylePrompt: PromptID {

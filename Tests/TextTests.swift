@@ -44,7 +44,6 @@ import Testing
         #expect(Profile.from(bundleID: "com.mitchellh.ghostty") == .agentTerminal)
         #expect(Profile.from(bundleID: "com.apple.mail") == .email)
         #expect(Profile.from(bundleID: "com.example.unknown") == .plain)
-        #expect(Profile.agentTerminal.newlineKey == "shift+return")
         #expect(Profile.chat.usesLLM("chat,email"))
         #expect(!Profile.agentIDE.usesLLM("chat,email"))
         #expect(Profile.agentIDE.usesLLM("chat, agentIDE"))

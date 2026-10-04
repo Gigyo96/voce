@@ -26,8 +26,10 @@
 >   comandi vocali in entrambe le lingue (Generale › Lingua della dettatura). Parakeet riconosce già entrambe.
 > - **Testo dal vivo** nel HUD (il §8 diceva "niente anteprima"): Parakeet ritrascrive la coda ogni 0,5 s, senza modelli
 >   di streaming aggiuntivi (Unified è solo inglese, Nemotron sarebbe un secondo modello da 600 MB).
-> - **Pausa dell'audio** durante la dettatura (non prevista): volume a zero con dissolvenza via Core Audio e
->   Play/Pausa simulato per le app multimediali, ripresa automatica alla fine.
+> - **Audio durante la dettatura** (non previsto): di default il volume si abbassa al 20% con dissolvenza via Core
+>   Audio; in alternativa si azzera con Play/Pausa simulato per le app multimediali, ripresa automatica alla fine.
+> - **A capo nei terminali**: niente ⇧↩ simulato (il Terminale di macOS lo tratta come ↩ e invierebbe il messaggio):
+>   il testo si incolla tutto insieme e il bracketed paste dei terminali tiene gli a capo.
 > - **CLI** `Voce transcribe` nello stesso binario, usata da `tools/eval.py`; `Voce snapshot` per le immagini della UI.
 
 ---

@@ -33,7 +33,9 @@ enum Prefs {
     static let silenceRMS = Pref("silenceRMS", 0.008)
     static let sounds = Pref("sounds", false)
     static let livePreview = Pref("livePreview", true)            // testo in tempo reale nel HUD mentre si parla
-    static let mediaMode = Pref("mediaMode", MediaMode.pause.rawValue)   // cosa fare dell'audio del Mac mentre detti
+    // Cosa fare dell'audio del Mac mentre detti. Di default si abbassa: «ferma» preme Play/Pausa, e se l'app che suona è
+    // stata indovinata male (un browser fermo) macOS apre Musica.
+    static let mediaMode = Pref("mediaMode", MediaMode.lower.rawValue)
     static let mediaLevel = Pref("mediaLevel", 20)                       // «abbassa»: % del volume originale (0…90)
     static let welcomed = Pref("welcomed", false)
 
@@ -69,7 +71,7 @@ enum Prefs {
     static var trigger: Hotkey.Trigger { Hotkey.Trigger(rawValue: hotkey.value) ?? .rightCommand }
     static var handsFreeMode: Hotkey.HandsFree { Hotkey.HandsFree(rawValue: handsFree.value) ?? .space }
     static var model: Transcriber.Model { Transcriber.Model(rawValue: asrModel.value) ?? .ultra }
-    static var media: MediaMode { MediaMode(rawValue: mediaMode.value) ?? .pause }
+    static var media: MediaMode { MediaMode(rawValue: mediaMode.value) ?? .lower }
     static var speech: SpeechLanguage { SpeechLanguage(rawValue: speechLanguage.value) ?? .auto }
 
     /// Termini del dizionario da cercare nell'audio (vuoto se il boosting è spento).

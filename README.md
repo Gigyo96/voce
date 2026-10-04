@@ -120,11 +120,11 @@ PC o qualsiasi combinazione.
 Quando una dettatura inizia davvero (dopo un quarto di secondo, così ⌘C col ⌘ destro non ferma la musica), Voce
 chiede a Core Audio quali app stanno suonando. Se ce ne sono, in base a Generale › Audio del Mac mentre detti:
 
+- **Abbassa il volume** (predefinito, al 20%): il volume sfuma fino alla percentuale scelta (da 0% a 90% del volume
+  che avevi) e tutto continua a suonare, più piano;
 - **Fermalo del tutto**: il volume di uscita sfuma a zero in un quarto di secondo (vale per qualsiasi fonte: browser,
   giochi, chiamate); se a suonare è un'app multimediale (Musica, Podcast, Spotify, Safari, Chrome, VLC…) Voce preme
   Play/Pausa, come il tasto della tastiera, così il brano o il video non va avanti mentre parli;
-- **Abbassa il volume**: il volume sfuma fino alla percentuale scelta (da 0% a 90% del volume che avevi) e tutto
-  continua a suonare, più piano;
 - **Non toccarlo**: non succede nulla.
 
 A fine dettatura il volume torna dov'era (e, in modalità «ferma», Voce preme di nuovo Play/Pausa). Se nel frattempo l'hai
@@ -213,8 +213,9 @@ flowchart LR
 - **Latenza bassa.** Le dettature lunghe vengono trascritte a pezzi mentre parli ancora, e il modello si "scalda"
   appena premi il tasto. Al rilascio restano da elaborare solo gli ultimi secondi.
 - **Profili per app.** Il trattamento del testo dipende dall'app in primo piano: editor di codice (Cursor, VS Code,
-  Windsurf, Zed), terminali (Terminale, iTerm2, Ghostty, Warp), chat, email e tutto il resto. Nei terminali gli a capo
-  diventano ⇧↩, così gli agenti da riga di comando non inviano il messaggio a metà.
+  Windsurf, Zed), terminali (Terminale, iTerm2, Ghostty, Warp), chat, email e tutto il resto. Il testo arriva con un
+  solo incolla, a capo compresi: shell e agenti da riga di comando (Claude Code, Codex…) lo ricevono come *bracketed
+  paste* e non inviano il messaggio a metà.
 - **Controlli sull'AI.** Se il testo rifinito è troppo corto o troppo lungo, comincia con un preambolo ("Certo, ecco…")
   o conserva meno della metà delle tue parole, Voce lo scarta e incolla il testo pulito dalle sole regole.
 
@@ -285,8 +286,10 @@ Strumenti:
 - `Voce meeting file.wav` elabora un file come una riunione importata e scrive su stdout la trascrizione con i parlanti.
 - Diagnostica: `/usr/bin/log show --last 10m --predicate 'subsystem == "it.dimarcantonio.voce"'`.
 
-Per pubblicare una versione basta un tag: `git tag v1.1.0 && git push --tags`. La CI compila l'app e allega `Voce.zip`
-alla release, che è il file scaricato dallo script di installazione.
+Per pubblicare una versione basta un tag: `git tag v1.1.0 && git push --tags`. La CI compila l'app, la firma e allega
+`Voce.zip` alla release, che è il file scaricato dallo script di installazione. La firma usa sempre lo stesso certificato
+self-signed, così dopo un aggiornamento macOS riconosce l'app e i permessi restano: si crea una volta con
+`scripts/release-cert.sh` e va nei secret del repository `VOCE_CERT_P12` e `VOCE_CERT_PASSWORD`.
 
 ### Struttura del codice
 

@@ -1432,6 +1432,16 @@
         }
       }
     },
+    "Incollato senza riscrittura: %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pasted without rewriting: %@"
+          }
+        }
+      }
+    },
     "Indirizzo": {
       "localizations": {
         "en": {
@@ -3938,6 +3948,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "also recognizes: %@"
+          }
+        }
+      }
+    },
+    "risposta scartata dai controlli": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "response discarded by the checks"
           }
         }
       }

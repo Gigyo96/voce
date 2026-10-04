@@ -6,8 +6,9 @@ struct PostProcessResult: Sendable {
     var text: String
     var send: Bool
     var llmUsed: Bool
-    var guardrail: String?   // motivo per cui l'output LLM è stato scartato
+    var guardrail: String?   // motivo per cui l'output LLM è stato scartato (per il registro)
     var llmMs: Int?
+    var failure: String?     // lo stesso motivo, breve e tradotto, per il HUD
 }
 
 enum PostProcess {
@@ -27,6 +28,7 @@ enum PostProcess {
             result.llmMs = Int(Date().timeIntervalSince(start) * 1000)
             if let why = Guardrail.violation(input: base, output: out) {
                 result.guardrail = why
+                result.failure = L("risposta scartata dai controlli")
             } else {
                 result.text = dictionary.apply(out)
                 result.llmUsed = true
@@ -34,6 +36,7 @@ enum PostProcess {
         } catch {
             result.llmMs = Int(Date().timeIntervalSince(start) * 1000)
             result.guardrail = "errore: \(error.localizedDescription)"
+            result.failure = LLMClient.headline(error)
         }
         return result
     }

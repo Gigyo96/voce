@@ -25,11 +25,12 @@ enum LLMClient {
         let content: String
         init(role: String, content: String) { self.role = role; self.content = content }
     }
-    private struct Request: Encodable {
+    struct Request: Encodable {
         let model: String
         let messages: [Message]
-        let temperature: Double
-        let max_tokens: Int
+        let temperature: Double?
+        let max_tokens: Int?
+        let max_completion_tokens: Int?
         let stream: Bool
         let reasoning_effort: String?
     }
@@ -60,11 +61,26 @@ enum LLMClient {
 
     /// Modelli che ragionano prima di rispondere: per sistemare un testo basta il minimo.
     static func reasoningEffort(model: String) -> String? {
-        let m = model.lowercased()
+        let m = name(model)
         if m.contains("gpt-oss") { return "low" }
         if m.contains("luna") { return "none" }
-        if m.hasPrefix("gpt-6") || m.hasPrefix("gemini") { return "low" }
+        if isOpenAIReasoning(m) || m.hasPrefix("gemini") { return "low" }
         return nil
+    }
+
+    /// Token in più per chi ragiona: il ragionamento conta nel tetto di `max_tokens` e senza margine la risposta arriva
+    /// vuota o troncata (Gemini, gpt-oss su Groq e Cerebras). I token non usati non si pagano.
+    static let reasoningAllowance = 1_024
+
+    /// GPT-5 e successivi, serie o: rifiutano una `temperature` diversa da quella predefinita.
+    static func isOpenAIReasoning(_ model: String) -> Bool {
+        let m = name(model)
+        return m.hasPrefix("gpt-5") || m.hasPrefix("gpt-6") || m.range(of: #"^o\d"#, options: .regularExpression) != nil
+    }
+
+    /// Il nome del modello senza il prefisso del provider ("openai/gpt-oss-20b" → "gpt-oss-20b").
+    private static func name(_ model: String) -> String {
+        String(model.lowercased().split(separator: "/").last ?? "")
     }
 
     private static func authorize(_ req: inout URLRequest, _ config: LLMConfig) {
@@ -77,7 +93,7 @@ enum LLMClient {
     }
 
     /// Richiesta a `chat/completions`; per i modelli Qwen3 il ragionamento si disattiva (§5).
-    private static func chatRequest(_ messages: [Message], config: LLMConfig, temperature: Double, maxTokens: Int,
+    static func chatRequest(_ messages: [Message], config: LLMConfig, temperature: Double, maxTokens: Int,
                                     stream: Bool) throws -> URLRequest {
         guard let url = endpoint(config.baseURL, "chat/completions") else { throw LLMError.badURL }
         let model = config.model.lowercased()
@@ -89,9 +105,16 @@ enum LLMClient {
         req.httpMethod = "POST"
         req.setValue("application/json", forHTTPHeaderField: "Content-Type")
         authorize(&req, config)
+        let effort = reasoningEffort(model: model)
+        let budget = effort == nil ? maxTokens : maxTokens + reasoningAllowance
+        // L'API di OpenAI vuole `max_completion_tokens` (i modelli recenti rifiutano `max_tokens`); gli altri servizi
+        // compatibili conoscono solo `max_tokens`.
+        let openAI = url.host() == "api.openai.com"
         req.httpBody = try JSONEncoder().encode(Request(
-            model: config.model, messages: messages, temperature: temperature, max_tokens: maxTokens, stream: stream,
-            reasoning_effort: reasoningEffort(model: model)))
+            model: config.model, messages: messages,
+            temperature: openAI && isOpenAIReasoning(model) ? nil : temperature,
+            max_tokens: openAI ? nil : budget, max_completion_tokens: openAI ? budget : nil,
+            stream: stream, reasoning_effort: effort))
         return req
     }
 

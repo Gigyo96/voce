@@ -62,6 +62,7 @@ import AVFoundation
         ) { [weak self] _ in MainActor.assumeIsolated { self?.applySettings() } }
 
         loadModel()
+        AIStatus.shared.refresh(delay: .seconds(3))   // serve al HUD per sapere se un errore della riscrittura va segnalato
         refreshStatus()
         statusTimer = Timer.scheduledTimer(withTimeInterval: 2, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.refreshStatus() }
@@ -279,6 +280,7 @@ import AVFoundation
 
             let text: String
             var send = false
+            var aiFailure: String?
             if mode == .command {
                 guard let rewritten = await runCommand(tr.boosted, on: selection, dictionary: dictionary, entry: &entry) else { return }
                 text = rewritten
@@ -291,15 +293,20 @@ import AVFoundation
                 entry.llm = pp.llmUsed
                 entry.llm_ms = pp.llmMs
                 entry.guardrail = pp.guardrail
+                // Solo con un servizio che risponde: senza servizio configurato la riscrittura si salta in silenzio.
+                if AIStatus.shared.main == .ok { aiFailure = pp.failure }
             }
 
             guard !text.isEmpty else { hud.show(.notice(L("Nessuna parola riconosciuta"), symbol: "text.badge.xmark")); return }
-            await Paster.insert(text, newlineKey: mode == .command ? "return" : profile.newlineKey,
-                                pressReturn: send, restoreAfterMs: Prefs.restoreClipboardMs.value)
+            await Paster.insert(text, pressReturn: send, restoreAfterMs: Prefs.restoreClipboardMs.value)
             entry.ms = Int(Date().timeIntervalSince(releasedAt) * 1000)
             entry.final = text
             lastText = text
-            hud.show(.done(text))
+            if let aiFailure {
+                hud.show(.notice(L("Incollato senza riscrittura: %@", aiFailure), symbol: "sparkles"))
+            } else {
+                hud.show(.done(text))
+            }
             play("Pop")
             History.append(entry)
             history.append(entry)
@@ -343,9 +350,6 @@ import AVFoundation
 
     func repaste() {
         guard let lastText, !isRecording else { return }
-        Task {
-            await Paster.insert(lastText, newlineKey: Profile.current.newlineKey,
-                                restoreAfterMs: Prefs.restoreClipboardMs.value)
-        }
+        Task { await Paster.insert(lastText, restoreAfterMs: Prefs.restoreClipboardMs.value) }
     }
 }

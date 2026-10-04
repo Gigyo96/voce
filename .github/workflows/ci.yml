@@ -26,7 +26,16 @@ jobs:
         run: |
           /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString ${GITHUB_REF_NAME#v}" Voce/Info.plist
           /usr/libexec/PlistBuddy -c "Set :CFBundleVersion ${GITHUB_RUN_NUMBER}" Voce/Info.plist
-      - run: scripts/build.sh
+      # Sempre lo stesso certificato (scripts/release-cert.sh): così i permessi di macOS restano validi dopo un
+      # aggiornamento. Senza i secret la release non parte, invece di uscire firmata ad-hoc.
+      - name: Build and sign
+        env:
+          VOCE_CERT_P12: ${{ secrets.VOCE_CERT_P12 }}
+          VOCE_CERT_PASSWORD: ${{ secrets.VOCE_CERT_PASSWORD }}
+        run: |
+          [[ -n "$VOCE_CERT_P12" ]] || { echo "::error::Mancano i secret VOCE_CERT_P12 e VOCE_CERT_PASSWORD (scripts/release-cert.sh)"; exit 1; }
+          scripts/build.sh
+          codesign -d -r- build/Voce.app 2>&1 | grep -q "certificate leaf" || { echo "::error::Voce.app non è firmata con il certificato delle release"; exit 1; }
       - run: ditto -c -k --keepParent build/Voce.app Voce.zip
       - name: Publish release
         env:

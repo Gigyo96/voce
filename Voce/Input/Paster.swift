@@ -9,29 +9,19 @@ import Carbon.HIToolbox
     private static let transientType = NSPasteboard.PasteboardType("org.nspasteboard.TransientType")
     private static let source = CGEventSource(stateID: .combinedSessionState)
 
-    /// Incolla `text` nel campo attivo. Con `newlineKey == "shift+return"` gli a capo diventano ⇧↩ (terminali con agent).
+    /// Incolla `text` nel campo attivo con un solo ⌘V, a capo compresi: terminali, shell e agenti da riga di comando
+    /// (Claude Code, Codex…) ricevono gli incolla come *bracketed paste* e non eseguono né inviano le righe intermedie.
+    /// Simulare ⇧↩ non funziona ovunque: il Terminale di macOS lo tratta come ↩ e invierebbe il messaggio a metà.
     /// Ritorna appena il testo è stato incollato; il ripristino della clipboard avviene dopo `restoreAfterMs`.
-    static func insert(_ text: String, newlineKey: String = "return", pressReturn: Bool = false, restoreAfterMs: Int) async {
+    static func insert(_ text: String, pressReturn: Bool = false, restoreAfterMs: Int) async {
         flushPendingRestore()
         let saved = snapshot()
-        let segments = newlineKey == "shift+return" ? text.components(separatedBy: "\n") : [text]
-        var written = 0
-        for (i, segment) in segments.enumerated() {
-            if i > 0 {
-                key(kVK_Return, flags: .maskShift)
-                try? await Task.sleep(for: .milliseconds(15))
-            }
-            guard !segment.isEmpty else { continue }
-            written = write(segment)
-            key(Keys.code(for: "v", or: kVK_ANSI_V), flags: .maskCommand)
-            // L'app destinataria legge la clipboard in modo asincrono: tra un segmento e l'altro serve un attimo.
-            if i < segments.count - 1 { try? await Task.sleep(for: .milliseconds(60)) }
-        }
+        let written = write(text)
+        key(Keys.code(for: "v", or: kVK_ANSI_V), flags: .maskCommand)
         if pressReturn {
             try? await Task.sleep(for: .milliseconds(60))
             key(kVK_Return)
         }
-        guard written != 0 else { return }
         let id = UUID()
         pending = (id, saved, written)
         Task {
@@ -53,6 +43,9 @@ import Carbon.HIToolbox
     /// Command Mode: legge la selezione con ⌘C sintetico e ripristina la clipboard. `nil` se non c'è selezione.
     static func copySelection() async -> String? {
         flushPendingRestore()
+        // Senza selezione VS Code, Cursor, JetBrains, Sublime e Zed copiano la riga intera: il comando la riscriverebbe
+        // e la incollerebbe di nuovo. Prima si chiede all'Accessibilità, poi si guarda cosa ha copiato l'app.
+        if focusedSelectionIsEmpty() { return nil }
         let pb = NSPasteboard.general
         let saved = snapshot()
         let before = pb.changeCount
@@ -60,10 +53,49 @@ import Carbon.HIToolbox
         var text: String?
         for _ in 0..<25 {   // fino a ~500 ms
             try? await Task.sleep(for: .milliseconds(20))
-            if pb.changeCount != before { text = pb.string(forType: .string); break }
+            if pb.changeCount != before {
+                text = isEmptySelectionCopy(pb) ? nil : pb.string(forType: .string)
+                break
+            }
         }
         if pb.changeCount != before { restore(saved) }
         return text
+    }
+
+    /// L'Accessibilità dice che nel campo attivo c'è solo il cursore. `false` se l'app non lo sa dire (Electron senza
+    /// accessibilità, terminali…): in quel caso decide `isEmptySelectionCopy`.
+    private static func focusedSelectionIsEmpty() -> Bool {
+        let system = AXUIElementCreateSystemWide()
+        AXUIElementSetMessagingTimeout(system, 0.25)   // un'app bloccata non deve fermare Voce
+        var value: CFTypeRef?
+        guard AXUIElementCopyAttributeValue(system, kAXFocusedUIElementAttribute as CFString, &value) == .success,
+              let value, CFGetTypeID(value) == AXUIElementGetTypeID() else { return false }
+        let element = unsafeDowncast(value, to: AXUIElement.self)
+        AXUIElementSetMessagingTimeout(element, 0.25)
+        var rangeValue: CFTypeRef?
+        var range = CFRange()
+        guard AXUIElementCopyAttributeValue(element, kAXSelectedTextRangeAttribute as CFString, &rangeValue) == .success,
+              let rangeValue, CFGetTypeID(rangeValue) == AXValueGetTypeID(),
+              AXValueGetValue(unsafeDowncast(rangeValue, to: AXValue.self), .cfRange, &range), range.length == 0 else { return false }
+        // Se l'app espone anche il testo selezionato, deve essere vuoto pure lui (alcune aggiornano solo uno dei due).
+        var selected: CFTypeRef?
+        if AXUIElementCopyAttributeValue(element, kAXSelectedTextAttribute as CFString, &selected) == .success,
+           let text = selected as? String, !text.isEmpty { return false }
+        return true
+    }
+
+    /// VS Code e i suoi derivati (Cursor, Windsurf, VSCodium) segnano la riga copiata senza selezione con
+    /// `"isFromEmptySelection":true`, dentro i dati personalizzati di Chromium (stringhe UTF-16) o in un tipo proprio.
+    static func isEmptySelectionCopy(_ pb: NSPasteboard) -> Bool {
+        let marker = #""isFromEmptySelection":true"#
+        for type in pb.types ?? [] where type.rawValue.contains("chromium") || type.rawValue.contains("vscode") {
+            guard let data = pb.data(forType: type) else { continue }
+            if String(decoding: data, as: UTF8.self).contains(marker) { return true }
+            let bytes = [UInt8](data)
+            let units = stride(from: 0, to: bytes.count - 1, by: 2).map { UInt16(bytes[$0]) | UInt16(bytes[$0 + 1]) << 8 }
+            if String(decoding: units, as: UTF16.self).contains(marker) { return true }
+        }
+        return false
     }
 
     // MARK: - Clipboard
@@ -92,7 +124,6 @@ import Carbon.HIToolbox
     }
 
     /// Scrive il testo marcato come transient (i clipboard manager lo ignorano). Restituisce il changeCount risultante.
-    @discardableResult
     private static func write(_ text: String) -> Int {
         let pb = NSPasteboard.general
         pb.clearContents()
