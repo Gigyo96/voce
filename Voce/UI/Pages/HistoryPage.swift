@@ -50,7 +50,7 @@ struct HistoryPage: View {
 }
 
 private struct HistoryRow: View {
-    let entry: Log.Entry
+    let entry: History.Entry
     let onCorrect: () -> Void
     @State private var hover = false
     @State private var copied = false

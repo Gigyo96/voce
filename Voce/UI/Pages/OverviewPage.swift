@@ -8,11 +8,11 @@ struct OverviewPage: View {
     @ObservedObject private var controller = Controller.shared
     @ObservedObject private var ai = AIStatus.shared
     @ObservedObject private var nav = Navigation.shared
-    @AppStorage("hotkey") private var hotkey = Hotkey.Trigger.rightCommand.rawValue
-    @AppStorage("handsFree") private var handsFree = Hotkey.HandsFree.space.rawValue
-    @AppStorage("llmProfiles") private var llmProfiles = "chat,email"
-    @AppStorage("llmBaseURL") private var llmBaseURL = "http://localhost:1234"
-    @AppStorage("commandBaseURL") private var commandBaseURL = ""
+    @AppStorage(Prefs.hotkey) private var hotkey
+    @AppStorage(Prefs.handsFree) private var handsFree
+    @AppStorage(Prefs.llmProfiles) private var llmProfiles
+    @AppStorage(Prefs.llmBaseURL) private var llmBaseURL
+    @AppStorage(Prefs.commandBaseURL) private var commandBaseURL
     @State private var mic = Permissions.microphone
     @State private var ax = Hotkey.hasAccessibility
     @State private var input = Hotkey.hasInputMonitoring

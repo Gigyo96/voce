@@ -66,8 +66,6 @@ import Carbon.HIToolbox
         return text
     }
 
-    static func pressReturn(shift: Bool = false) { key(kVK_Return, flags: shift ? .maskShift : []) }
-
     // MARK: - Clipboard
 
     private struct Snapshot { let items: [[NSPasteboard.PasteboardType: Data]] }

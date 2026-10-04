@@ -52,8 +52,6 @@ final class Recorder: @unchecked Sendable {
         }
     }
 
-    var sampleCount: Int { lock.withLock { samples.count } }
-
     /// RMS massimo dei buffer arrivati dall'ultima lettura (0…1): alimenta la waveform del HUD.
     func consumeLevel() -> Float {
         lock.withLock {

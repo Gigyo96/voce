@@ -4,6 +4,26 @@
 > Autore: Luigi Di Marcantonio (con Claude)
 > Target: Mac Apple Silicon (Mac mini), dettatura italiana con termini tecnici inglesi
 
+> [!NOTE]
+> Questo è il **progetto originale**, scritto prima del codice. I riferimenti `§` nei commenti del codice
+> rimandano alle sue sezioni. Per la struttura attuale del codice vedi il [README](../README.md#struttura-del-codice).
+> Durante l'implementazione alcune scelte sono cambiate, quasi sempre perché i dati o l'uso reale hanno detto altro:
+>
+> - **Modello**: di default Parakeet **Ultra** (post-training di v3 di FluidAudio: stessa velocità, WER più basso
+>   su tutte le lingue FLEURS). v3 resta selezionabile.
+> - **Tasto**: di default **⌘ destro**, non Fn: su molti Mac il tasto 🌐 non arriva alle app (né via event tap né via HID).
+>   Il tasto è configurabile, anche come combinazione qualsiasi. Mani libere = tasto + Spazio (il doppio ⌘ è Siri).
+> - **Trascrizione incrementale** (Appendice A) già implementata: l'audio lungo si taglia nelle pause e si trascrive
+>   mentre si parla; alla pressione del tasto il modello viene "riscaldato" perché l'ANE a riposo raddoppia la latenza.
+> - **Boosting CTC**: lo "spotter rescue" di FluidAudio è disattivato (l'encoder CTC è inglese e sul parlato italiano
+>   dava falsi positivi); le sostituzioni si riapplicano solo con similarità ≥ 0,7.
+> - **Guardrail in più**: se l'LLM conserva meno della metà delle parole, il suo output si scarta.
+> - **Interfaccia**: HUD con waveform live e una finestra con sidebar (Panoramica, Cronologia, Dizionario,
+>   Scorciatoie, Funzioni AI, Generale) al posto delle sole impostazioni del §8.
+> - **Servizi AI**: preset per LM Studio, Ollama, Groq, Cerebras, Gemini, Claude, OpenAI e OpenRouter; una chiave
+>   nel Portachiavi per ogni servizio; i comandi possono usare un servizio dedicato.
+> - **CLI** `Voce transcribe` nello stesso binario, usata da `tools/eval.py`; `Voce snapshot` per le immagini della UI.
+
 ---
 
 ## 0. TL;DR — le decisioni
@@ -351,6 +371,8 @@ I **guardrail** restano, perché proteggono il testo dell'utente. Se una di ques
 Rimossi rispetto alla v1.0: WhisperKit, mlx-swift, KeyboardShortcuts, GRDB, Yams, Sparkle.
 
 ### 9.3 Struttura
+
+Struttura prevista all'inizio (quella attuale è nel [README](../README.md#struttura-del-codice)):
 
 ```
 Voce/

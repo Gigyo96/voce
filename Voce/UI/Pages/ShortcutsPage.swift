@@ -3,9 +3,9 @@ import SwiftUI
 // MARK: - Scorciatoie
 
 struct ShortcutsPage: View {
-    @AppStorage("hotkey") private var hotkey = Hotkey.Trigger.rightCommand.rawValue
-    @AppStorage("handsFree") private var handsFree = Hotkey.HandsFree.space.rawValue
-    @AppStorage("sendOnInvia") private var sendOnInvia = false
+    @AppStorage(Prefs.hotkey) private var hotkey
+    @AppStorage(Prefs.handsFree) private var handsFree
+    @AppStorage(Prefs.sendOnInvia) private var sendOnInvia
     @State private var recording = false
     @State private var problem: String?
     private var trigger: Hotkey.Trigger { Hotkey.Trigger(rawValue: hotkey) ?? .rightCommand }

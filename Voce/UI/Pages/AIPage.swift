@@ -182,14 +182,14 @@ struct AIServiceEditor: View {
 // MARK: - Pagina "Funzioni AI"
 
 struct AIPage: View {
-    @AppStorage("hotkey") private var hotkey = Hotkey.Trigger.rightCommand.rawValue
-    @AppStorage("llmBaseURL") private var llmBaseURL = "http://localhost:1234"
-    @AppStorage("llmModel") private var llmModel = "qwen3-1.7b"
-    @AppStorage("llmTimeoutMs") private var llmTimeoutMs = 1500
-    @AppStorage("llmProfiles") private var llmProfiles = "chat,email"
-    @AppStorage("commandBaseURL") private var commandBaseURL = ""
-    @AppStorage("commandModel") private var commandModel = ""
-    @AppStorage("commandTimeoutMs") private var commandTimeoutMs = 6000
+    @AppStorage(Prefs.hotkey) private var hotkey
+    @AppStorage(Prefs.llmBaseURL) private var llmBaseURL
+    @AppStorage(Prefs.llmModel) private var llmModel
+    @AppStorage(Prefs.llmTimeoutMs) private var llmTimeoutMs
+    @AppStorage(Prefs.llmProfiles) private var llmProfiles
+    @AppStorage(Prefs.commandBaseURL) private var commandBaseURL
+    @AppStorage(Prefs.commandModel) private var commandModel
+    @AppStorage(Prefs.commandTimeoutMs) private var commandTimeoutMs
     @ObservedObject private var status = AIStatus.shared
     private var trigger: Hotkey.Trigger { Hotkey.Trigger(rawValue: hotkey) ?? .rightCommand }
     private var dedicated: Bool { !commandBaseURL.isEmpty || !commandModel.isEmpty }

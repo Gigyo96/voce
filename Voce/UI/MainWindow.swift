@@ -47,7 +47,7 @@ import SwiftUI
     @Published var page: Page? = .overview
     @Published var dictionaryTab: DictionaryTab = .terms
     /// Dettatura da cui creare una correzione (dalla Cronologia); `nil` = l'ultima.
-    @Published var correctionSource: Log.Entry?
+    @Published var correctionSource: History.Entry?
 }
 
 @MainActor enum Windows {
@@ -148,41 +148,5 @@ private struct SidebarStatus: View {
             Text(controller.status.short).font(.caption).foregroundStyle(.secondary).lineLimit(1)
             Spacer(minLength: 0)
         }
-    }
-}
-
-// MARK: - Componenti comuni
-
-struct Banner<Actions: View>: View {
-    let symbol: String
-    let tint: Color
-    let text: String
-    @ViewBuilder var actions: Actions
-
-    var body: some View {
-        HStack(spacing: 10) {
-            Image(systemName: symbol).foregroundStyle(tint)
-            Text(text).lineLimit(3)
-            Spacer(minLength: 8)
-            actions
-        }
-        .padding(10)
-        .background(RoundedRectangle(cornerRadius: 8).fill(tint.opacity(0.12)))
-    }
-}
-
-/// Nome e icona di un'app dal bundle ID (per la Cronologia).
-@MainActor enum AppInfo {
-    private static var cache: [String: (String, NSImage?)] = [:]
-
-    static func lookup(_ bundleID: String) -> (name: String, icon: NSImage?) {
-        if let hit = cache[bundleID] { return hit }
-        var out: (String, NSImage?) = (bundleID, nil)
-        if let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) {
-            let name = FileManager.default.displayName(atPath: url.path).replacingOccurrences(of: ".app", with: "")
-            out = (name, NSWorkspace.shared.icon(forFile: url.path))
-        }
-        cache[bundleID] = out
-        return out
     }
 }

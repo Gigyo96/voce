@@ -101,7 +101,7 @@ struct DictionaryPage: View {
             VStack(alignment: .leading, spacing: 12) {
                 if let error = model.loadError {
                     Banner(symbol: "exclamationmark.triangle.fill", tint: .orange, text: "\(error) Correggilo a mano: finché non è valido l'editor resta in sola lettura.") {
-                        Button("Apri file") { NSWorkspace.shared.open(PersonalDictionary.url) }
+                        Button("Apri file") { NSWorkspace.shared.open(Paths.dictionary) }
                         Button("Ricarica") { model.reload() }
                     }
                 }
@@ -273,7 +273,7 @@ struct DictionaryPage: View {
             }
             Spacer(minLength: 0)
             Button {
-                NSWorkspace.shared.open(PersonalDictionary.url)
+                NSWorkspace.shared.open(Paths.dictionary)
             } label: {
                 Label("dictionary.json", systemImage: "curlybraces")
             }
@@ -363,7 +363,7 @@ private struct DeleteButton: View {
 
 /// Ultima dettatura come parole cliccabili: si selezionano le parole sbagliate (contigue) per creare una correzione.
 private struct QuickFix: View {
-    let entry: Log.Entry
+    let entry: History.Entry
     let onPick: (String) -> Void
     @State private var range: ClosedRange<Int>?
 
@@ -407,63 +407,4 @@ private struct QuickFix: View {
         }
         if let range { onPick(words[range].joined(separator: " ").lowercased()) }
     }
-}
-
-struct ChipStyle: ButtonStyle {
-    let selected: Bool
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.callout)
-            .padding(.horizontal, 7)
-            .padding(.vertical, 3)
-            .background(RoundedRectangle(cornerRadius: 6).fill(selected ? Color.accentColor : Color.primary.opacity(configuration.isPressed ? 0.14 : 0.07)))
-            .foregroundStyle(selected ? Color.white : Color.primary)
-    }
-}
-
-/// Disposizione a capo automatico (le parole della QuickFix).
-struct FlowLayout: Layout {
-    var spacing: CGFloat = 4
-
-    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
-        // Proposte nil/infinite (dimensione ideale) o zero (minima): mai restituire una dimensione infinita.
-        let width = proposal.width.flatMap { $0.isFinite && $0 > 0 ? $0 : nil } ?? 600
-        let rows = arrange(width: width, subviews: subviews)
-        return CGSize(width: min(width, rows.map(\.width).max() ?? 0), height: rows.last.map { $0.y + $0.height } ?? 0)
-    }
-
-    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
-        for row in arrange(width: bounds.width, subviews: subviews) {
-            var x = bounds.minX
-            for i in row.items {
-                let size = subviews[i].sizeThatFits(.unspecified)
-                subviews[i].place(at: CGPoint(x: x, y: bounds.minY + row.y), proposal: ProposedViewSize(size))
-                x += size.width + spacing
-            }
-        }
-    }
-
-    private struct Row { var items: [Int] = []; var y: CGFloat = 0; var width: CGFloat = 0; var height: CGFloat = 0 }
-
-    private func arrange(width: CGFloat, subviews: Subviews) -> [Row] {
-        var rows = [Row()]
-        for (i, sub) in subviews.enumerated() {
-            let size = sub.sizeThatFits(.unspecified)
-            if !rows[rows.count - 1].items.isEmpty, rows[rows.count - 1].width + spacing + size.width > width {
-                let last = rows[rows.count - 1]
-                rows.append(Row(y: last.y + last.height + spacing))
-            }
-            var row = rows[rows.count - 1]
-            row.width += (row.items.isEmpty ? 0 : spacing) + size.width
-            row.height = max(row.height, size.height)
-            row.items.append(i)
-            rows[rows.count - 1] = row
-        }
-        return rows
-    }
-}
-
-@MainActor func copy(_ text: String) {
-    NSPasteboard.general.clearContents()
-    NSPasteboard.general.setString(text, forType: .string)
 }

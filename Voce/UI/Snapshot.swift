@@ -9,7 +9,6 @@ import SwiftUI
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         _ = NSApplication.shared
         NSApp.setActivationPolicy(.prohibited)
-        Prefs.register()
 
         // Solo il dettaglio di ogni pagina (NavigationSplitView offscreen esce vuota). Finestra senza bordo e
         // `sizingOptions = []` come nell'app: così anche i Form e le List vengono disegnati.
@@ -60,12 +59,12 @@ import SwiftUI
                         }
                         VStack(alignment: .leading, spacing: 6) {
                             Text("Voce").font(.system(size: 96, weight: .bold, design: .rounded))
-                            Text("Hold a key, speak, release.").font(.system(size: 36, weight: .medium, design: .rounded))
+                            Text("Tieni premuto, parla, rilascia.").font(.system(size: 36, weight: .medium, design: .rounded))
                                 .foregroundStyle(.white.opacity(0.75))
                         }
                     }
                     hud.frame(width: 620, height: 90).scaleEffect(1.3)
-                    Text("Local voice dictation for macOS  ·  Parakeet on the Neural Engine  ·  Nothing leaves your Mac")
+                    Text("Dettatura vocale locale per macOS  ·  Parakeet sul Neural Engine  ·  Niente lascia il tuo Mac")
                         .font(.system(size: 22, weight: .medium, design: .rounded)).foregroundStyle(.white.opacity(0.55))
                 }
                 .foregroundStyle(.white)

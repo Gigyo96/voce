@@ -5,12 +5,12 @@ import SwiftUI
 // MARK: - Generale: avvio, microfono, riconoscimento, avanzate
 
 struct GeneralPage: View {
-    @AppStorage("asrModel") private var asrModel = Transcriber.Model.ultra.rawValue
-    @AppStorage("warmMic") private var warmMic = false
-    @AppStorage("sounds") private var sounds = false
-    @AppStorage("restoreClipboardMs") private var restoreClipboardMs = 600
-    @AppStorage("saveSamples") private var saveSamples = false
-    @AppStorage("vocabBoost") private var vocabBoost = true
+    @AppStorage(Prefs.asrModel) private var asrModel
+    @AppStorage(Prefs.warmMic) private var warmMic
+    @AppStorage(Prefs.sounds) private var sounds
+    @AppStorage(Prefs.restoreClipboardMs) private var restoreClipboardMs
+    @AppStorage(Prefs.saveSamples) private var saveSamples
+    @AppStorage(Prefs.vocabBoost) private var vocabBoost
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
     @State private var loginError: String?
     @State private var micName = Permissions.inputDeviceName
@@ -64,9 +64,9 @@ struct GeneralPage: View {
                 }
                 LabeledContent("File") {
                     HStack {
-                        Button("Registro") { NSWorkspace.shared.open(Log.url) }
-                        Button("Cartella di Voce") { NSWorkspace.shared.open(Log.dir) }
-                        if saveSamples { Button("Registrazioni") { NSWorkspace.shared.open(Log.datasetDir) } }
+                        Button("Registro") { NSWorkspace.shared.open(Paths.history) }
+                        Button("Cartella di Voce") { NSWorkspace.shared.open(Paths.dir) }
+                        if saveSamples { Button("Registrazioni") { NSWorkspace.shared.open(Paths.dataset) } }
                     }
                 }
             }
